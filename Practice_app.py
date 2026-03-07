@@ -12,9 +12,9 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Montserrat:wght@300;400;600&display=swap');
     
-    /* Apply premium fonts safely, specifically targeting text but leaving Streamlit's architecture alone */
-    html, body, p, span:not(.material-symbols-rounded), div, label, li, .stMarkdown, .stText {
-        font-family: 'Montserrat', sans-serif;
+    /* 1. BRING BACK THE PREMIUM FONTS GLOBALLY */
+    html, body, [class*="css"], [class*="st-"] {
+        font-family: 'Montserrat', sans-serif !important;
     }
     
     h1, h2, h3, h4, h5, h6 {
@@ -22,12 +22,16 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
-    /* FORCE Streamlit's internal icons (like the sidebar arrow and popovers) to use their correct icon font */
-    .material-symbols-rounded, .stIcon, [data-icon], i, svg {
+    /* 2. THE IRONCLAD ICON SHIELD */
+    /* This forces all UI arrows, popovers, and sidebar toggles to stay as symbols */
+    .material-symbols-rounded, 
+    .stIcon, 
+    [data-testid="stIconMaterial"], 
+    span:has(> .material-symbols-rounded) {
         font-family: 'Material Symbols Rounded' !important;
     }
     
-    /* Center align the numbers in the matrices */
+    /* Center align the numbers in the mobile matrix */
     input[type="number"] { 
         text-align: center; 
     }
