@@ -220,36 +220,46 @@ else:
                 df_10 = df_logs[df_logs['game_name'] == "10 Shot"]
                 render_icon_grid(df_10, "10 Shot")
                 
-            elif st.session_state.mode_10shot == "entry":
+           elif st.session_state.mode_10shot == "entry":
                 if st.button("🔙 Back to Previous Entries", key="back_10shot"):
                     st.session_state.mode_10shot = "grid"
                     st.rerun()
                 
                 st.divider()
                 st.write("### New 10 Shot Log")
+                st.caption("Tap a cell below to edit your distances.")
                 
-                col_c, col_o = st.columns(2)
-                col_c.markdown("<div style='text-align: center;'><b>Carry Distance</b></div>", unsafe_allow_html=True)
-                col_o.markdown("<div style='text-align: center;'><b>Offline (ft)</b></div>", unsafe_allow_html=True)
+                # Create a temporary dataframe for the sleek mobile spreadsheet
+                if 'df_10shot_matrix' not in st.session_state:
+                    st.session_state.df_10shot_matrix = pd.DataFrame({
+                        "Shot": [f"Shot {i+1}" for i in range(10)],
+                        "Carry (yds/m)": [0.0] * 10,
+                        "Offline (ft)": [0.0] * 10
+                    })
                 
-                carrys, offlines = [], []
-                for i in range(10):
-                    c1, c2 = st.columns(2)
-                    # We use label_visibility="collapsed" to make it look like a clean grid
-                    c = c1.number_input(f"Carry {i+1}", key=f"c_{i}", value=0.0, step=1.0, label_visibility="collapsed")
-                    o = c2.number_input(f"Offline {i+1}", key=f"o_{i}", value=0.0, step=1.0, label_visibility="collapsed")
-                    carrys.append(c)
-                    offlines.append(o)
+                # Render the interactive mobile-friendly spreadsheet
+                edited_df = st.data_editor(
+                    st.session_state.df_10shot_matrix,
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Shot": st.column_config.TextColumn("Shot", disabled=True), # Lock the Shot column
+                        "Carry (yds/m)": st.column_config.NumberColumn("Carry (yds/m)", step=1.0),
+                        "Offline (ft)": st.column_config.NumberColumn("Offline (ft)", step=1.0)
+                    }
+                )
                 
                 # The Math: (Carry - Offline). Average of all 10.
-                shot_scores = [carrys[i] - offlines[i] for i in range(10)]
-                final_score = sum(shot_scores) / 10.0
+                edited_df['Score'] = edited_df['Carry (yds/m)'] - edited_df['Offline (ft)']
+                final_score = edited_df['Score'].mean()
                 
                 st.divider()
                 st.metric("🎯 Final Average Score", f"{final_score:.1f}")
                 
                 if st.button("💾 Save 10 Shot Game", type="primary", use_container_width=True):
-                    raw_json = [{"shot": i+1, "carry": carrys[i], "offline": offlines[i]} for i in range(10)]
+                    # Convert the dataframe back into a JSON-friendly list of dictionaries
+                    raw_json = edited_df.to_dict(orient='records')
+                    
                     data = {
                         "user_name": st.session_state.current_user,
                         "game_category": "Driving",
@@ -260,6 +270,9 @@ else:
                     }
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved to your database!")
+                    
+                    # Clear the matrix for the next time
+                    del st.session_state['df_10shot_matrix']
                     st.session_state.mode_10shot = "grid"
                     st.rerun()
 
