@@ -75,6 +75,44 @@ def get_local_time_info():
 def load_all_logs(username):
     response = supabase.table("practice_logs").select("*").eq("user_name", username).execute()
     return pd.DataFrame(response.data) if response.data else pd.DataFrame()
+    
+    # --- 4.5 HELPER: MACBOOK ICON GRID ---
+def render_icon_grid(df_game, game_name):
+    if df_game.empty:
+        st.info("No practice sessions logged yet. Click 'New Entry' to start.")
+        return
+
+    cols = st.columns(4)
+    # Sort by newest first
+    df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
+    
+    for i, (_, row) in enumerate(df_game.iterrows()):
+        with cols[i % 4]:
+            with st.container(border=True):
+                # Format Date
+                try:
+                    dt = datetime.datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+                    date_str = dt.strftime("%b %d, %Y")
+                except:
+                    date_str = str(row['created_at'])[:10]
+                
+                # Format Score depending on the game
+                if game_name == "Max SS/BS":
+                    score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
+                else:
+                    score_str = f"{row['score_primary']:.1f}"
+
+                # Render the "Icon"
+                st.markdown(f"""
+                <div style='text-align: center; padding: 10px;'>
+                    <span style='color: gray; font-size: 0.8em;'>🗂️ {date_str}</span><br>
+                    <b style='font-size: 1.6em; color: #111;'>{score_str}</b>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("View Data", key=f"view_{row['id']}", use_container_width=True):
+                    st.session_state[f"view_data_{game_name}"] = row['raw_data']
+                    st.toast("Data view mode coming in Part 4!", icon="⏳")
 
 # --- 5. ROUTING: LOGIN GATE ---
 if st.session_state.page == "Login" or not st.session_state.current_user:
@@ -156,20 +194,110 @@ else:
     elif st.session_state.page == "Driving":
         st.title("🚀 Driving Combine")
         
+        # State managers to flip between "Grid" view and "New Entry" view
+        if 'mode_10shot' not in st.session_state: st.session_state.mode_10shot = "grid"
+        if 'mode_ssbs' not in st.session_state: st.session_state.mode_ssbs = "grid"
+
         game_tabs = st.tabs(["10 Shot Game", "Max SS/BS"])
         
+        # --- TAB 1: 10 SHOT GAME ---
         with game_tabs[0]:
             st.subheader("The 10 Shot Game")
             st.write("*Hit 10 shots. Carry distance (yds/m) minus offline total (ft). Average is your final score.*")
-            # We will insert the 10-row matrix and MacBook icons here in Part 2.
-            st.info("Matrix interface loading...")
             
+            if st.session_state.mode_10shot == "grid":
+                if st.button("➕ New Entry", key="new_10shot", type="primary"):
+                    st.session_state.mode_10shot = "entry"
+                    st.rerun()
+                st.divider()
+                df_10 = df_logs[df_logs['game_name'] == "10 Shot"]
+                render_icon_grid(df_10, "10 Shot")
+                
+            elif st.session_state.mode_10shot == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_10shot"):
+                    st.session_state.mode_10shot = "grid"
+                    st.rerun()
+                
+                st.divider()
+                st.write("### New 10 Shot Log")
+                
+                col_c, col_o = st.columns(2)
+                col_c.markdown("<div style='text-align: center;'><b>Carry Distance</b></div>", unsafe_allow_html=True)
+                col_o.markdown("<div style='text-align: center;'><b>Offline (ft)</b></div>", unsafe_allow_html=True)
+                
+                carrys, offlines = [], []
+                for i in range(10):
+                    c1, c2 = st.columns(2)
+                    # We use label_visibility="collapsed" to make it look like a clean grid
+                    c = c1.number_input(f"Carry {i+1}", key=f"c_{i}", value=0.0, step=1.0, label_visibility="collapsed")
+                    o = c2.number_input(f"Offline {i+1}", key=f"o_{i}", value=0.0, step=1.0, label_visibility="collapsed")
+                    carrys.append(c)
+                    offlines.append(o)
+                
+                # The Math: (Carry - Offline). Average of all 10.
+                shot_scores = [carrys[i] - offlines[i] for i in range(10)]
+                final_score = sum(shot_scores) / 10.0
+                
+                st.divider()
+                st.metric("🎯 Final Average Score", f"{final_score:.1f}")
+                
+                if st.button("💾 Save 10 Shot Game", type="primary", use_container_width=True):
+                    raw_json = [{"shot": i+1, "carry": carrys[i], "offline": offlines[i]} for i in range(10)]
+                    data = {
+                        "user_name": st.session_state.current_user,
+                        "game_category": "Driving",
+                        "game_name": "10 Shot",
+                        "score_primary": final_score,
+                        "raw_data": raw_json,
+                        "week_number": current_week
+                    }
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved to your database!")
+                    st.session_state.mode_10shot = "grid"
+                    st.rerun()
+
+        # --- TAB 2: MAX SS/BS ---
         with game_tabs[1]:
             st.subheader("Speed Limits (SS/BS)")
             st.write("*Your Max Swing Speed and Ball Speed (in mph) with your Driver today.*")
-            # We will insert the dual-input manual entry here in Part 2.
-            st.info("Speed logging interface loading...")
-
+            
+            if st.session_state.mode_ssbs == "grid":
+                if st.button("➕ New Entry", key="new_ssbs", type="primary"):
+                    st.session_state.mode_ssbs = "entry"
+                    st.rerun()
+                st.divider()
+                df_ssbs = df_logs[df_logs['game_name'] == "Max SS/BS"]
+                render_icon_grid(df_ssbs, "Max SS/BS")
+                
+            elif st.session_state.mode_ssbs == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_ssbs"):
+                    st.session_state.mode_ssbs = "grid"
+                    st.rerun()
+                
+                st.divider()
+                st.write("### New Speed Log")
+                c1, c2 = st.columns(2)
+                ss = c1.number_input("Max Swing Speed (mph)", min_value=0.0, step=1.0, value=110.0)
+                bs = c2.number_input("Max Ball Speed (mph)", min_value=0.0, step=1.0, value=160.0)
+                
+                st.divider()
+                # Visualized as SS/BS, just like you wanted
+                st.metric("⚡ Final Speed Score (SS/BS)", f"{ss:.0f} / {bs:.0f}")
+                
+                if st.button("💾 Save Speed Limits", type="primary", use_container_width=True):
+                    data = {
+                        "user_name": st.session_state.current_user,
+                        "game_category": "Driving",
+                        "game_name": "Max SS/BS",
+                        "score_primary": ss,           # Stored separately so Stock Market charts work!
+                        "score_secondary": bs,         # Stored separately so Stock Market charts work!
+                        "week_number": current_week
+                    }
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Speeds locked in!")
+                    st.session_state.mode_ssbs = "grid"
+                    st.rerun()
+                    
     # ==========================================
     # OTHER PAGES (Placeholders for Part 2 & 3)
     # ==========================================
