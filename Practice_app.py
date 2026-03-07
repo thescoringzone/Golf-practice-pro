@@ -220,7 +220,7 @@ else:
                 df_10 = df_logs[df_logs['game_name'] == "10 Shot"]
                 render_icon_grid(df_10, "10 Shot")
                 
-           elif st.session_state.mode_10shot == "entry":
+            elif st.session_state.mode_10shot == "entry":
                 if st.button("🔙 Back to Previous Entries", key="back_10shot"):
                     st.session_state.mode_10shot = "grid"
                     st.rerun()
