@@ -83,43 +83,56 @@ def load_all_logs(username):
             "score_primary", "score_secondary", "raw_data", "week_number"
         ])
     
-    # --- 4.5 HELPER: MACBOOK ICON GRID ---
+   # --- 4.5 HELPER: MACBOOK ICON GRID ---
 def render_icon_grid(df_game, game_name):
     if df_game.empty:
         st.info("No practice sessions logged yet. Click 'New Entry' to start.")
         return
 
     cols = st.columns(4)
-    # Sort by newest first
+    # Sort by newest first so your latest practice is always first
     df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
     
     for i, (_, row) in enumerate(df_game.iterrows()):
         with cols[i % 4]:
             with st.container(border=True):
-                # Format Date
+                # 1. Format the Date beautifully
                 try:
                     dt = datetime.datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
                     date_str = dt.strftime("%b %d, %Y")
                 except:
                     date_str = str(row['created_at'])[:10]
                 
-                # Format Score depending on the game
+                # 2. Format the Score depending on the game rules
                 if game_name == "Max SS/BS":
                     score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
                 else:
                     score_str = f"{row['score_primary']:.1f}"
 
-                # Render the "Icon"
+                # 3. Render the specific Date and Score vividly on the icon
                 st.markdown(f"""
-                <div style='text-align: center; padding: 10px;'>
-                    <span style='color: gray; font-size: 0.8em;'>🗂️ {date_str}</span><br>
+                <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
+                    <span style='color: gray; font-size: 0.9em;'>🗂️ {date_str}</span><br>
                     <b style='font-size: 1.6em; color: #111;'>{score_str}</b>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button("View Data", key=f"view_{row['id']}", use_container_width=True):
-                    st.session_state[f"view_data_{game_name}"] = row['raw_data']
-                    st.toast("Data view mode coming in Part 4!", icon="⏳")
+                # 4. Action Buttons (View & Delete)
+                c1, c2 = st.columns(2)
+                
+                if c1.button("👁️ View", key=f"view_{row['id']}", use_container_width=True):
+                    st.toast("Data expansion module coming in Part 4!", icon="⏳")
+                
+                # 5. The Safe Delete Feature (Floating Popover)
+                with c2.popover("🗑️ Del", use_container_width=True):
+                    st.markdown("**Delete this record?**")
+                    st.caption("This cannot be undone.")
+                    
+                    if st.button("Yes, Delete", key=f"confirm_del_{row['id']}", type="primary", use_container_width=True):
+                        # Safely remove it from the database
+                        supabase.table("practice_logs").delete().eq("id", row['id']).execute()
+                        st.success("Record deleted!")
+                        st.rerun()
 
 # --- 5. ROUTING: LOGIN GATE ---
 if st.session_state.page == "Login" or not st.session_state.current_user:
