@@ -339,7 +339,7 @@ else:
         
         # --- TAB 1: ON-COURSE LONG ---
         with tabs[0]:
-            st.write("*Log your on-course 150-200 yards/meter scoring zone scores when you practice on the course.*")
+            st.write("*Log your 150-200 yards/meter scoring zone scores when you practice on the course.*")
             st.caption("**Rules:** 5m from target (not pin) is a birdie, 10m is a par. Outside of 10m is bogey. Penalty shot is double.")
             if st.session_state.mode_szl_oc == "grid":
                 if st.button("➕ New Entry", key="new_szl_oc", type="primary"):
@@ -356,7 +356,8 @@ else:
                 st.divider()
                 
                 c1, c2 = st.columns(2)
-                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0.0, step=1.0)
+                # value=0 forces this to be a whole number (integer)
+                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0, step=1)
                 total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1)
                 
                 final_score = total_score / total_shots
@@ -408,7 +409,7 @@ else:
         
         # --- TAB 1: ON-COURSE MID ---
         with tabs[0]:
-            st.write("*Log your on-course 100-150 yards/meter scoring zone scores when you practice on the course.*")
+            st.write("*Log your 100-150 yards/meter scoring zone scores when you practice on the course.*")
             st.caption("**Rules:** 4m from target (not pin) is a birdie, 8m is a par. Outside of 8m is bogey. Penalty shot is double.")
             if st.session_state.mode_szm_oc == "grid":
                 if st.button("➕ New Entry", key="new_szm_oc", type="primary"):
@@ -425,7 +426,7 @@ else:
                 st.divider()
                 
                 c1, c2 = st.columns(2)
-                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0.0, step=1.0, key="szm_score")
+                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0, step=1, key="szm_score")
                 total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1, key="szm_shots")
                 
                 final_score = total_score / total_shots
@@ -465,7 +466,7 @@ else:
                     st.rerun()
 
     # ==========================================
-    # PAGE: SCORING Zone SHORT
+    # PAGE: SCORING ZONE SHORT
     # ==========================================
     elif st.session_state.page == "Scoring Zone Short":
         st.title("🎯 Scoring Zone Short (50-100)")
@@ -477,7 +478,7 @@ else:
         
         # --- TAB 1: ON-COURSE SHORT ---
         with tabs[0]:
-            st.write("*Log your on-course 50-100 yards/meter scoring zone scores when you practice on the course.*")
+            st.write("*Log your 50-100 yards/meter scoring zone scores when you practice on the course.*")
             st.caption("**Rules:** 3m from target (not pin) is a birdie, 6m is a par. Outside of 6m is bogey. Penalty shot is double.")
             if st.session_state.mode_szs_oc == "grid":
                 if st.button("➕ New Entry", key="new_szs_oc", type="primary"):
@@ -494,7 +495,7 @@ else:
                 st.divider()
                 
                 c1, c2 = st.columns(2)
-                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0.0, step=1.0, key="szs_score")
+                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0, step=1, key="szs_score")
                 total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1, key="szs_shots")
                 
                 final_score = total_score / total_shots
