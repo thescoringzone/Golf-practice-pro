@@ -534,8 +534,156 @@ else:
                     st.session_state.mode_szs_tm = "grid"
                     st.rerun()
                     
+    # ==========================================
+    # PAGE: SHORT GAME
+    # ==========================================
     elif st.session_state.page == "Short Game":
         st.title("🪤 Short Game Combine")
+        
+        if 'mode_sg_par21' not in st.session_state: st.session_state.mode_sg_par21 = "grid"
+        if 'mode_sg_2050' not in st.session_state: st.session_state.mode_sg_2050 = "grid"
+        if 'mode_sg_6ft' not in st.session_state: st.session_state.mode_sg_6ft = "grid"
+
+        tabs = st.tabs(["Par 21 WB", "20 to 50", "6ft Game"])
+        
+        # --- TAB 1: PAR 21 WB ---
+        with tabs[0]:
+            st.write("*A 9 hole short game course, with 3 easy, 3 medium, and 3 hard shots all from green-side up to 50 yards.*")
+            st.caption("**Rules:** Drop 2 balls per hole. Play the worst ball amongst the 2 and hole out. Par is 2 per hole. Tour average is 21. If too advanced, use 1 ball.")
+            
+            if st.session_state.mode_sg_par21 == "grid":
+                if st.button("➕ New Entry", key="new_sg_par21", type="primary"):
+                    st.session_state.mode_sg_par21 = "entry"
+                    st.rerun()
+                st.divider()
+                df_sg_par21 = df_logs[df_logs['game_name'] == "Par 21 WB"]
+                render_icon_grid(df_sg_par21, "Par 21 WB")
+                
+            elif st.session_state.mode_sg_par21 == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_sg_par21"):
+                    st.session_state.mode_sg_par21 = "grid"
+                    st.rerun()
+                st.divider()
+                
+                final_score = st.number_input("Final Strokes Taken", min_value=9, value=21, step=1)
+                
+                if st.button("💾 Save Par 21 Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "Par 21 WB", "score_primary": final_score, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_sg_par21 = "grid"
+                    st.rerun()
+
+        # --- TAB 2: 20 TO 50 MATRIX ---
+        with tabs[1]:
+            st.write("*5 balls from 20 yards. Record how many end up within 3ft, 6ft, 10ft. Repeat from 30, 40, and 50 yards.*")
+            st.caption("**Rules:** See your final percentage. Randomise order and lies to vary difficulty. Max 5 total successful shots logged per yardage row.")
+            
+            if st.session_state.mode_sg_2050 == "grid":
+                if st.button("➕ New Entry", key="new_sg_2050", type="primary"):
+                    st.session_state.mode_sg_2050 = "entry"
+                    st.rerun()
+                st.divider()
+                df_sg_2050 = df_logs[df_logs['game_name'] == "20 to 50"]
+                render_icon_grid(df_sg_2050, "20 to 50")
+                
+            elif st.session_state.mode_sg_2050 == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_sg_2050"):
+                    st.session_state.mode_sg_2050 = "grid"
+                    st.rerun()
+                st.divider()
+                st.write("### 20 to 50 Tracker")
+                st.caption("Tap cells to enter how many shots landed in each zone (0-5).")
+                
+                if 'df_2050_matrix' not in st.session_state:
+                    st.session_state.df_2050_matrix = pd.DataFrame({
+                        "Yardage": ["20", "30", "40", "50"],
+                        "3ft": [0, 0, 0, 0],
+                        "6ft": [0, 0, 0, 0],
+                        "10ft": [0, 0, 0, 0]
+                    })
+                
+                edited_df = st.data_editor(
+                    st.session_state.df_2050_matrix,
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Yardage": st.column_config.TextColumn("Yardage", disabled=True),
+                        "3ft": st.column_config.NumberColumn("3ft", min_value=0, max_value=5, step=1),
+                        "6ft": st.column_config.NumberColumn("6ft", min_value=0, max_value=5, step=1),
+                        "10ft": st.column_config.NumberColumn("10ft", min_value=0, max_value=5, step=1)
+                    }
+                )
+                
+                # Math calculations (Assuming 20 total shots for the game)
+                tot_3ft = edited_df["3ft"].sum()
+                tot_6ft = edited_df["6ft"].sum()
+                tot_10ft = edited_df["10ft"].sum()
+                
+                pct_3ft = (tot_3ft / 20.0) * 100
+                pct_6ft = (tot_6ft / 20.0) * 100
+                pct_10ft = (tot_10ft / 20.0) * 100
+                
+                final_pct = pct_3ft + pct_6ft + pct_10ft
+                
+                # Validation check warning to prevent bad math
+                row_sums = edited_df["3ft"] + edited_df["6ft"] + edited_df["10ft"]
+                if (row_sums > 5).any():
+                    st.warning("⚠️ Careful! One of your yardage rows adds up to more than 5 shots. Please correct it to save.")
+                
+                c1, c2, c3 = st.columns(3)
+                c1.metric("3ft Accuracy", f"{pct_3ft:.0f}%")
+                c2.metric("6ft Accuracy", f"{pct_6ft:.0f}%")
+                c3.metric("10ft Accuracy", f"{pct_10ft:.0f}%")
+                
+                st.divider()
+                st.metric("🎯 Final Combined Score", f"{final_pct:.0f}%")
+                
+                # Disable the save button if a row has more than 5 shots recorded
+                if st.button("💾 Save 20 to 50 Log", type="primary", use_container_width=True, disabled=(row_sums > 5).any()):
+                    raw_json = edited_df.to_dict(orient='records')
+                    data = {
+                        "user_name": st.session_state.current_user,
+                        "game_category": "Short Game",
+                        "game_name": "20 to 50",
+                        "score_primary": final_pct,
+                        "raw_data": raw_json,
+                        "week_number": current_week
+                    }
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    del st.session_state['df_2050_matrix']
+                    st.session_state.mode_sg_2050 = "grid"
+                    st.rerun()
+
+        # --- TAB 3: 6FT GAME ---
+        with tabs[2]:
+            st.write("*You have 2 lives. Choose random shots within 20 yards. Chip within 6ft = survive. Outside 6ft = lose 1 life.*")
+            st.caption("**Rules:** Within 3ft = regain 1 life. Hole out = regain 2 lives. Randomise lies and pins. Record total holes played when you lose all lives.")
+            
+            if st.session_state.mode_sg_6ft == "grid":
+                if st.button("➕ New Entry", key="new_sg_6ft", type="primary"):
+                    st.session_state.mode_sg_6ft = "entry"
+                    st.rerun()
+                st.divider()
+                df_sg_6ft = df_logs[df_logs['game_name'] == "6ft Game"]
+                render_icon_grid(df_sg_6ft, "6ft Game")
+                
+            elif st.session_state.mode_sg_6ft == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_sg_6ft"):
+                    st.session_state.mode_sg_6ft = "grid"
+                    st.rerun()
+                st.divider()
+                
+                holes_played = st.number_input("Total Holes Played (Survived)", min_value=0, value=9, step=1)
+                
+                if st.button("💾 Save 6ft Game Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "6ft Game", "score_primary": holes_played, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_sg_6ft = "grid"
+                    st.rerun()
+                    
     elif st.session_state.page == "Putting":
         st.title("⛳ Putting Combine")
     elif st.session_state.page == "Stock Market Analytics":
