@@ -12,8 +12,9 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Montserrat:wght@300;400;600&display=swap');
     
-    html, body, [class*="css"], [class*="st-"], .stMarkdown, .stText {
-        font-family: 'Montserrat', sans-serif !important;
+    /* Apply premium fonts safely, specifically targeting text but leaving Streamlit's architecture alone */
+    html, body, p, span:not(.material-symbols-rounded), div, label, li, .stMarkdown, .stText {
+        font-family: 'Montserrat', sans-serif;
     }
     
     h1, h2, h3, h4, h5, h6 {
@@ -21,27 +22,15 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
-    /* MacBook Style Icon Cards for Previous Entries */
-    .mac-icon {
-        background-color: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        border-radius: 12px;
-        padding: 15px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        transition: transform 0.2s, box-shadow 0.2s;
-        cursor: pointer;
+    /* FORCE Streamlit's internal icons (like the sidebar arrow and popovers) to use their correct icon font */
+    .material-symbols-rounded, .stIcon, [data-icon], i, svg {
+        font-family: 'Material Symbols Rounded' !important;
     }
-    .mac-icon:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-        border-color: #007bff;
-    }
-    .icon-date { font-size: 0.85em; color: #666; margin-bottom: 5px; }
-    .icon-score { font-size: 1.4em; font-weight: bold; color: #111; }
     
-    /* Number Input alignment */
-    input[type="number"] { text-align: center; }
+    /* Center align the numbers in the matrices */
+    input[type="number"] { 
+        text-align: center; 
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -90,46 +79,45 @@ def render_icon_grid(df_game, game_name):
         return
 
     cols = st.columns(4)
-    # Sort by newest first so your latest practice is always first
+    # Sort by newest first
     df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
     
     for i, (_, row) in enumerate(df_game.iterrows()):
         with cols[i % 4]:
             with st.container(border=True):
-                # 1. Format the Date beautifully
+                # 1. Format Date
                 try:
                     dt = datetime.datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
                     date_str = dt.strftime("%b %d, %Y")
                 except:
                     date_str = str(row['created_at'])[:10]
                 
-                # 2. Format the Score depending on the game rules
+                # 2. Format Score
                 if game_name == "Max SS/BS":
                     score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
                 else:
                     score_str = f"{row['score_primary']:.1f}"
 
-                # 3. Render the specific Date and Score vividly on the icon
+                # 3. Render Date and Score (Fixed color for Dark Mode)
                 st.markdown(f"""
                 <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
                     <span style='color: gray; font-size: 0.9em;'>🗂️ {date_str}</span><br>
-                    <b style='font-size: 1.6em; color: #111;'>{score_str}</b>
+                    <b style='font-size: 1.6em; color: var(--text-color);'>{score_str}</b>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # 4. Action Buttons (View & Delete)
+                # 4. Action Buttons
                 c1, c2 = st.columns(2)
                 
                 if c1.button("👁️ View", key=f"view_{row['id']}", use_container_width=True):
                     st.toast("Data expansion module coming in Part 4!", icon="⏳")
                 
-                # 5. The Safe Delete Feature (Floating Popover)
+                # 5. Safe Delete Feature
                 with c2.popover("🗑️ Del", use_container_width=True):
                     st.markdown("**Delete this record?**")
                     st.caption("This cannot be undone.")
                     
-                    if st.button("Yes, Delete", key=f"confirm_del_{row['id']}", type="primary", use_container_width=True):
-                        # Safely remove it from the database
+                    if st.button("Yes", key=f"confirm_del_{row['id']}", type="primary", use_container_width=True):
                         supabase.table("practice_logs").delete().eq("id", row['id']).execute()
                         st.success("Record deleted!")
                         st.rerun()
