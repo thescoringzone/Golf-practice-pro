@@ -74,7 +74,14 @@ def get_local_time_info():
 # --- 4. DATA LOADER ---
 def load_all_logs(username):
     response = supabase.table("practice_logs").select("*").eq("user_name", username).execute()
-    return pd.DataFrame(response.data) if response.data else pd.DataFrame()
+    if response.data:
+        return pd.DataFrame(response.data)
+    else:
+        # If the database is empty, build an empty shell with the correct columns
+        return pd.DataFrame(columns=[
+            "id", "created_at", "user_name", "game_category", "game_name", 
+            "score_primary", "score_secondary", "raw_data", "week_number"
+        ])
     
     # --- 4.5 HELPER: MACBOOK ICON GRID ---
 def render_icon_grid(df_game, game_name):
