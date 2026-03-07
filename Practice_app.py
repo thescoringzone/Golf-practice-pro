@@ -326,12 +326,213 @@ else:
     # ==========================================
     # OTHER PAGES (Placeholders for Part 2 & 3)
     # ==========================================
+    # ==========================================
+    # PAGE: SCORING ZONE LONG
+    # ==========================================
     elif st.session_state.page == "Scoring Zone Long":
         st.title("🎯 Scoring Zone Long (150-200)")
+        
+        if 'mode_szl_oc' not in st.session_state: st.session_state.mode_szl_oc = "grid"
+        if 'mode_szl_tm' not in st.session_state: st.session_state.mode_szl_tm = "grid"
+
+        tabs = st.tabs(["On-Course 150-200", "TM 150-200"])
+        
+        # --- TAB 1: ON-COURSE LONG ---
+        with tabs[0]:
+            st.write("*Log your on-course 150-200 yards/meter scoring zone scores when you practice on the course.*")
+            st.caption("**Rules:** 5m from target (not pin) is a birdie, 10m is a par. Outside of 10m is bogey. Penalty shot is double.")
+            if st.session_state.mode_szl_oc == "grid":
+                if st.button("➕ New Entry", key="new_szl_oc", type="primary"):
+                    st.session_state.mode_szl_oc = "entry"
+                    st.rerun()
+                st.divider()
+                df_szl_oc = df_logs[df_logs['game_name'] == "On-Course 150-200"]
+                render_icon_grid(df_szl_oc, "On-Course 150-200")
+                
+            elif st.session_state.mode_szl_oc == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szl_oc"):
+                    st.session_state.mode_szl_oc = "grid"
+                    st.rerun()
+                st.divider()
+                
+                c1, c2 = st.columns(2)
+                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0.0, step=1.0)
+                total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1)
+                
+                final_score = total_score / total_shots
+                st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
+                
+                if st.button("💾 Save On-Course Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "On-Course 150-200", "score_primary": final_score, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_szl_oc = "grid"
+                    st.rerun()
+
+        # --- TAB 2: TM LONG ---
+        with tabs[1]:
+            st.write("*Launch monitor: Randomised systematic game from 150-200 with all pin locations/green shapes. 10 shot game. Record Strokes Gained.*")
+            if st.session_state.mode_szl_tm == "grid":
+                if st.button("➕ New Entry", key="new_szl_tm", type="primary"):
+                    st.session_state.mode_szl_tm = "entry"
+                    st.rerun()
+                st.divider()
+                df_szl_tm = df_logs[df_logs['game_name'] == "TM 150-200"]
+                render_icon_grid(df_szl_tm, "TM 150-200")
+                
+            elif st.session_state.mode_szl_tm == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szl_tm"):
+                    st.session_state.mode_szl_tm = "grid"
+                    st.rerun()
+                st.divider()
+                
+                sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1)
+                
+                if st.button("💾 Save TM Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "TM 150-200", "score_primary": sg_score, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_szl_tm = "grid"
+                    st.rerun()
+
+    # ==========================================
+    # PAGE: SCORING ZONE MID
+    # ==========================================
     elif st.session_state.page == "Scoring Zone Mid":
         st.title("🎯 Scoring Zone Mid (100-150)")
+        
+        if 'mode_szm_oc' not in st.session_state: st.session_state.mode_szm_oc = "grid"
+        if 'mode_szm_tm' not in st.session_state: st.session_state.mode_szm_tm = "grid"
+
+        tabs = st.tabs(["On-Course 100-150", "TM 100-150"])
+        
+        # --- TAB 1: ON-COURSE MID ---
+        with tabs[0]:
+            st.write("*Log your on-course 100-150 yards/meter scoring zone scores when you practice on the course.*")
+            st.caption("**Rules:** 4m from target (not pin) is a birdie, 8m is a par. Outside of 8m is bogey. Penalty shot is double.")
+            if st.session_state.mode_szm_oc == "grid":
+                if st.button("➕ New Entry", key="new_szm_oc", type="primary"):
+                    st.session_state.mode_szm_oc = "entry"
+                    st.rerun()
+                st.divider()
+                df_szm_oc = df_logs[df_logs['game_name'] == "On-Course 100-150"]
+                render_icon_grid(df_szm_oc, "On-Course 100-150")
+                
+            elif st.session_state.mode_szm_oc == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szm_oc"):
+                    st.session_state.mode_szm_oc = "grid"
+                    st.rerun()
+                st.divider()
+                
+                c1, c2 = st.columns(2)
+                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0.0, step=1.0, key="szm_score")
+                total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1, key="szm_shots")
+                
+                final_score = total_score / total_shots
+                st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
+                
+                if st.button("💾 Save On-Course Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Mid", "game_name": "On-Course 100-150", "score_primary": final_score, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_szm_oc = "grid"
+                    st.rerun()
+
+        # --- TAB 2: TM MID ---
+        with tabs[1]:
+            st.write("*Launch monitor: Randomised systematic game from 100-150 with all pin locations/green shapes. 10 shot game. Record Strokes Gained.*")
+            if st.session_state.mode_szm_tm == "grid":
+                if st.button("➕ New Entry", key="new_szm_tm", type="primary"):
+                    st.session_state.mode_szm_tm = "entry"
+                    st.rerun()
+                st.divider()
+                df_szm_tm = df_logs[df_logs['game_name'] == "TM 100-150"]
+                render_icon_grid(df_szm_tm, "TM 100-150")
+                
+            elif st.session_state.mode_szm_tm == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szm_tm"):
+                    st.session_state.mode_szm_tm = "grid"
+                    st.rerun()
+                st.divider()
+                
+                sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1, key="szm_sg")
+                
+                if st.button("💾 Save TM Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Mid", "game_name": "TM 100-150", "score_primary": sg_score, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_szm_tm = "grid"
+                    st.rerun()
+
+    # ==========================================
+    # PAGE: SCORING Zone SHORT
+    # ==========================================
     elif st.session_state.page == "Scoring Zone Short":
         st.title("🎯 Scoring Zone Short (50-100)")
+        
+        if 'mode_szs_oc' not in st.session_state: st.session_state.mode_szs_oc = "grid"
+        if 'mode_szs_tm' not in st.session_state: st.session_state.mode_szs_tm = "grid"
+
+        tabs = st.tabs(["On-Course 50-100", "TM 50-100"])
+        
+        # --- TAB 1: ON-COURSE SHORT ---
+        with tabs[0]:
+            st.write("*Log your on-course 50-100 yards/meter scoring zone scores when you practice on the course.*")
+            st.caption("**Rules:** 3m from target (not pin) is a birdie, 6m is a par. Outside of 6m is bogey. Penalty shot is double.")
+            if st.session_state.mode_szs_oc == "grid":
+                if st.button("➕ New Entry", key="new_szs_oc", type="primary"):
+                    st.session_state.mode_szs_oc = "entry"
+                    st.rerun()
+                st.divider()
+                df_szs_oc = df_logs[df_logs['game_name'] == "On-Course 50-100"]
+                render_icon_grid(df_szs_oc, "On-Course 50-100")
+                
+            elif st.session_state.mode_szs_oc == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szs_oc"):
+                    st.session_state.mode_szs_oc = "grid"
+                    st.rerun()
+                st.divider()
+                
+                c1, c2 = st.columns(2)
+                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0.0, step=1.0, key="szs_score")
+                total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1, key="szs_shots")
+                
+                final_score = total_score / total_shots
+                st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
+                
+                if st.button("💾 Save On-Course Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "On-Course 50-100", "score_primary": final_score, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_szs_oc = "grid"
+                    st.rerun()
+
+        # --- TAB 2: TM SHORT ---
+        with tabs[1]:
+            st.write("*Launch monitor: Hit each shot from 50-100 in 5yd/m increments, max 2yd/m off in carry. You can only progress if you complete the current yardage.*")
+            if st.session_state.mode_szs_tm == "grid":
+                if st.button("➕ New Entry", key="new_szs_tm", type="primary"):
+                    st.session_state.mode_szs_tm = "entry"
+                    st.rerun()
+                st.divider()
+                df_szs_tm = df_logs[df_logs['game_name'] == "TM 50-100"]
+                render_icon_grid(df_szs_tm, "TM 50-100")
+                
+            elif st.session_state.mode_szs_tm == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szs_tm"):
+                    st.session_state.mode_szs_tm = "grid"
+                    st.rerun()
+                st.divider()
+                
+                total_attempts = st.number_input("Total Shots Taken to Complete", min_value=11, value=15, step=1)
+                
+                if st.button("💾 Save TM Ladder Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "TM 50-100", "score_primary": total_attempts, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Ladder complete and saved!")
+                    st.session_state.mode_szs_tm = "grid"
+                    st.rerun()
+                    
     elif st.session_state.page == "Short Game":
         st.title("🪤 Short Game Combine")
     elif st.session_state.page == "Putting":
