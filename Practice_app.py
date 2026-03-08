@@ -13,31 +13,47 @@ st.set_page_config(page_title="Golf Practice Pro", layout="wide", initial_sideba
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Montserrat:wght@300;400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Montserrat:wght@300;400;500;600&display=swap');
     
-    /* Safely target text elements without overpowering Streamlit's UI classes */
-    html, body, p, div, label, li, span, .stMarkdown, .stText {
+    /* Master Font Enforcer for clean UI text */
+    p, div, label, li, span, th, td, .stMarkdown, .stText {
         font-family: 'Montserrat', sans-serif;
     }
     
-    h1, h2, h3, h4, h5, h6 {
+    /* Premium Serif Font for Headers and Big Metric Numbers */
+    h1, h2, h3, h4, h5, h6, [data-testid="stMetricValue"] {
         font-family: 'Playfair Display', serif !important;
         font-weight: 600 !important;
+        letter-spacing: 0.5px;
     }
     
-    /* Re-enforce the Material Icons font specifically for UI elements */
+    /* UI Icon Enforcer (Keeps arrows and buttons looking correct) */
     .material-symbols-rounded, .stIcon, [data-testid="stIconMaterial"], i, svg {
         font-family: 'Material Symbols Rounded' !important;
     }
     
-    /* Lock the charts from touch interactions */
+    /* Mobile Touch Lock for Charts */
     [data-testid="stVegaLiteChart"], canvas { 
         pointer-events: none !important; 
     }
     
-    /* Center align the numbers in the mobile matrices */
-    input[type="number"] { 
-        text-align: center; 
+    /* Sleek Inputs */
+    input[type="number"], input[type="text"] { 
+        text-align: center !important; 
+        font-weight: 500 !important;
+    }
+    
+    /* Premium Card Shadows for Containers and Grids */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 12px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;
+        border: 1px solid rgba(150,150,150,0.15) !important;
+    }
+    
+    /* Subtle button hover effects */
+    .stButton > button {
+        border-radius: 8px !important;
+        transition: all 0.2s ease;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -125,8 +141,8 @@ def render_icon_grid(df_game, game_name):
                 # 3. Render the specific grid block
                 st.markdown(f"""
                 <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
-                    <span style='color: gray; font-size: 0.9em;'>🗂️ {date_str}</span><br>
-                    <b style='font-size: 1.6em; color: var(--text-color);'>{score_str}</b>
+                    <span style='color: gray; font-size: 0.9em; font-family: "Montserrat", sans-serif;'>🗂️ {date_str}</span><br>
+                    <b style='font-size: 1.8em; font-family: "Playfair Display", serif; color: var(--text-color);'>{score_str}</b>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -156,8 +172,8 @@ def render_icon_grid(df_game, game_name):
 # 5. ROUTING: LOGIN GATE
 # ==========================================
 if st.session_state.page == "Login" or not st.session_state.current_user:
-    st.markdown("<h1 style='text-align: center; font-size: 4em; margin-top: 5%;'>Golf Practice Pro</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: gray;'>Elite Combine & Analytics</h3>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 4.5em; margin-top: 5%;'>Golf Practice Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #6b7280; font-weight: 400; letter-spacing: 1px; font-family: \"Montserrat\", sans-serif;'>Practice like a tour pro</h3>", unsafe_allow_html=True)
     st.write("<br><br>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -167,13 +183,13 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
             common_tzs = ["US/Eastern", "US/Central", "US/Mountain", "US/Pacific", "Europe/London", "Asia/Hong_Kong", "Australia/Sydney", "UTC"]
             selected_tz = st.selectbox("Your Local Timezone (For Weekly Reset)", common_tzs, index=0)
             
+            st.write("<br>", unsafe_allow_html=True)
             if st.button("Authenticate & Enter", use_container_width=True, type="primary"):
                 if username_input:
                     st.session_state.current_user = username_input
                     st.session_state.timezone = selected_tz
                     st.session_state.page = "Weekly Dashboard"
                     st.rerun()
-
 
 # ==========================================
 # 6. ROUTING: SECURE PLATFORM & SIDEBAR
