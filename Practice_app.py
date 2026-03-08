@@ -96,13 +96,17 @@ def render_icon_grid(df_game, game_name):
                 except:
                     date_str = str(row['created_at'])[:10]
                 
-                # 2. Format Score
+                # 2. Format Score based on the specific game
                 if game_name == "Max SS/BS":
                     score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
+                elif game_name == "20 to 50":
+                    score_str = f"{row['score_primary']:.0f}%" # Whole number with percentage
+                elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100"]: 
+                    score_str = f"{row['score_primary']:.0f}" # Clean whole numbers
                 else:
-                    score_str = f"{row['score_primary']:.1f}"
+                    score_str = f"{row['score_primary']:.1f}" # Decimals for averages
 
-                # 3. Render Date and Score (Fixed color for Dark Mode)
+                # 3. Render Date and Score 
                 st.markdown(f"""
                 <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
                     <span style='color: gray; font-size: 0.9em;'>🗂️ {date_str}</span><br>
@@ -615,16 +619,22 @@ else:
                     }
                 )
                 
-                # Math calculations (Assuming 20 total shots for the game)
-                tot_3ft = edited_df["3ft"].sum()
-                tot_6ft = edited_df["6ft"].sum()
-                tot_10ft = edited_df["10ft"].sum()
+                # Cumulative Math calculations (Assuming 20 total shots for the game)
+                tot_3ft_only = edited_df["3ft"].sum()
+                tot_6ft_only = edited_df["6ft"].sum()
+                tot_10ft_only = edited_df["10ft"].sum()
                 
-                pct_3ft = (tot_3ft / 20.0) * 100
-                pct_6ft = (tot_6ft / 20.0) * 100
-                pct_10ft = (tot_10ft / 20.0) * 100
+                # Add inner circles to outer circles
+                cum_3ft = tot_3ft_only
+                cum_6ft = tot_3ft_only + tot_6ft_only
+                cum_10ft = tot_3ft_only + tot_6ft_only + tot_10ft_only
                 
-                final_pct = pct_3ft + pct_6ft + pct_10ft
+                pct_3ft = (cum_3ft / 20.0) * 100
+                pct_6ft = (cum_6ft / 20.0) * 100
+                pct_10ft = (cum_10ft / 20.0) * 100
+                
+                # Final score is strictly the 6ft cumulative accuracy
+                final_pct = pct_6ft 
                 
                 # Validation check warning to prevent bad math
                 row_sums = edited_df["3ft"] + edited_df["6ft"] + edited_df["10ft"]
@@ -637,7 +647,7 @@ else:
                 c3.metric("10ft Accuracy", f"{pct_10ft:.0f}%")
                 
                 st.divider()
-                st.metric("🎯 Final Combined Score", f"{final_pct:.0f}%")
+                st.metric("🎯 Final Combined Score (6ft Accuracy)", f"{final_pct:.0f}%")
                 
                 # Disable the save button if a row has more than 5 shots recorded
                 if st.button("💾 Save 20 to 50 Log", type="primary", use_container_width=True, disabled=(row_sums > 5).any()):
