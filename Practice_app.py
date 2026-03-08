@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 import datetime
 import pytz
 import json
@@ -806,10 +807,10 @@ else:
         st.title("📈 Your Practice Trends")
         st.write("Track your long-term progress, historical averages, and Running Baselines.")
         
-        # NUCLEAR CSS LOCK: Disables touch interactions so charts don't zoom on mobile!
+        # Double CSS Lock for older mobile browsers
         st.markdown("""
             <style>
-            [data-testid="stArrowVegaLiteChart"], canvas { 
+            [data-testid="stVegaLiteChart"], canvas { 
                 pointer-events: none !important; 
             }
             </style>
@@ -818,7 +819,6 @@ else:
         if df_logs.empty:
             st.info("No practice data logged yet. Head to the combine pages to log your first session!")
         else:
-            # 1. Macro Switch: Drills vs Categories
             analysis_mode = st.radio(
                 "Choose Analysis Mode:", 
                 ["🎯 Individual Drills (Absolute Scores)", "📈 Entire Category (Running Baseline)"], 
@@ -874,51 +874,62 @@ else:
                     
                 if selected_game == "Max SS/BS":
                     df_agg = df_trend.groupby(['Period_Sort', 'Group'], sort=False)[['score_primary', 'score_secondary']].max().reset_index()
-                    # Only select the two score columns before renaming
-                    chart_data = df_agg.set_index('Group')[['score_primary', 'score_secondary']]
-                    chart_data.columns = ['Swing Speed', 'Ball Speed']
+                    df_chart = df_agg.copy()
                     
                     c1, c2 = st.columns(2)
                     c1.metric("🏆 All-Time Personal Best", f"{pb_ss:.0f} / {pb_bs:.0f}")
                     c2.metric("📊 All-Time Average", f"{avg_ss:.0f} / {avg_bs:.0f}")
                     
+                    # Smart Y-Axis for Swing Speed
+                    min_ss, max_ss = df_chart['score_primary'].min(), df_chart['score_primary'].max()
+                    ss_chart = alt.Chart(df_chart).mark_bar(color="#FF4B4B").encode(
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        y=alt.Y('score_primary:Q', scale=alt.Scale(domain=[max(0, min_ss - 5), max_ss + 5]), title="Swing Speed (mph)"),
+                        tooltip=[]
+                    ).properties(height=250)
+                    
                     st.write(f"### Swing Speed History ({timeline})")
-                    st.bar_chart(chart_data[['Swing Speed']], color=["#FF4B4B"]) 
+                    st.altair_chart(ss_chart, use_container_width=True) 
+
+                    # Smart Y-Axis for Ball Speed
+                    min_bs, max_bs = df_chart['score_secondary'].min(), df_chart['score_secondary'].max()
+                    bs_chart = alt.Chart(df_chart).mark_bar(color="#0068C9").encode(
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        y=alt.Y('score_secondary:Q', scale=alt.Scale(domain=[max(0, min_bs - 5), max_bs + 5]), title="Ball Speed (mph)"),
+                        tooltip=[]
+                    ).properties(height=250)
+                    
                     st.write(f"### Ball Speed History ({timeline})")
-                    st.bar_chart(chart_data[['Ball Speed']], color=["#0068C9"]) 
+                    st.altair_chart(bs_chart, use_container_width=True) 
                 else:
                     df_agg = df_trend.groupby(['Period_Sort', 'Group'], sort=False)['score_primary'].mean().reset_index()
-                    # Only select the single score column before renaming
-                    chart_data = df_agg.set_index('Group')[['score_primary']]
-                    chart_data.columns = ['Score']
+                    df_chart = df_agg.copy()
                     
                     if selected_game in ["20 to 50"]:
                         pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
+                        y_domain = [0, 100]
                     elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]:
                         pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
+                        min_v, max_v = df_chart['score_primary'].min(), df_chart['score_primary'].max()
+                        y_domain = [max(0, min_v - 2), max_v + 2]
                     else:
                         pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
+                        min_v, max_v = df_chart['score_primary'].min(), df_chart['score_primary'].max()
+                        y_domain = [min_v - 2, max_v + 2]
                         
                     c1, c2 = st.columns(2)
                     c1.metric("🏆 All-Time Personal Best", pb_str)
                     c2.metric("📊 All-Time Average", avg_str)
                     
-                    st.write(f"### Performance History ({timeline})")
-                    st.bar_chart(chart_data)
-                    
-                    if selected_game in ["20 to 50"]:
-                        pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
-                    elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]:
-                        pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
-                    else:
-                        pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
-                        
-                    c1, c2 = st.columns(2)
-                    c1.metric("🏆 All-Time Personal Best", pb_str)
-                    c2.metric("📊 All-Time Average", avg_str)
+                    # Smart Y-Axis Generic Chart
+                    chart = alt.Chart(df_chart).mark_bar(color="#0068C9").encode(
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        y=alt.Y('score_primary:Q', scale=alt.Scale(domain=y_domain), title="Score"),
+                        tooltip=[]
+                    ).properties(height=300)
                     
                     st.write(f"### Performance History ({timeline})")
-                    st.bar_chart(chart_data)
+                    st.altair_chart(chart, use_container_width=True)
 
             # ==========================================
             # MODE B: ENTIRE CATEGORY (RUNNING BASELINE)
@@ -954,30 +965,23 @@ else:
                     df_cat['Period_Sort'] = df_cat['created_at'].dt.to_period('Y').dt.start_time
                     df_cat['Group'] = df_cat['created_at'].dt.strftime('%Y')
                 
-                # Group by Period and Game, then Pivot to compare
                 df_agg = df_cat.groupby(['Period_Sort', 'Group', 'game_name'])['score_primary'].mean().reset_index()
                 pivot = df_agg.pivot(index=['Period_Sort', 'Group'], columns='game_name', values='score_primary')
                 pivot = pivot.sort_index()
                 
-                # We need at least 2 periods of data to calculate momentum!
                 if len(pivot) < 2:
                     st.warning(f"⏳ **More data needed.** You only have one period of data for {selected_cat}. The Running Baseline requires at least two periods to calculate your momentum. Log another session next week!")
                 else:
-                    # Calculate period-over-period percentage change
                     pct_diff = pivot.pct_change() * 100
                     
-                    # Flip the math for games where a lower score is actually an improvement
                     lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
                     for col in pct_diff.columns:
                         if col in lower_is_better_games:
                             pct_diff[col] = pct_diff[col] * -1 
                             
-                    # Average the % improvements across all drills in the category
                     category_momentum = pct_diff.mean(axis=1).dropna()
                     
-                    chart_df = pd.DataFrame(category_momentum, columns=["Momentum Delta (%)"])
-                    chart_df.index = chart_df.index.get_level_values('Group')
-                    
+                    chart_df = pd.DataFrame(category_momentum, columns=["Momentum Delta (%)"]).reset_index()
                     latest_momentum = category_momentum.iloc[-1]
                     
                     st.metric(
@@ -987,6 +991,19 @@ else:
                         delta_color="normal"
                     )
                     
+                    # Smart Y-Axis with Dynamic Colors for Momentum
+                    min_m, max_m = chart_df['Momentum Delta (%)'].min(), chart_df['Momentum Delta (%)'].max()
+                    mom_chart = alt.Chart(chart_df).mark_bar().encode(
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        y=alt.Y('Momentum Delta (%):Q', scale=alt.Scale(domain=[min_m - 5, max_m + 5])),
+                        color=alt.condition(
+                            alt.datum['Momentum Delta (%)'] > 0,
+                            alt.value("#0068C9"),  # Blue for improvement
+                            alt.value("#FF4B4B")   # Red for regression
+                        ),
+                        tooltip=[]
+                    ).properties(height=300)
+                    
                     st.write(f"### {selected_cat} Running Baseline Chart")
-                    st.caption("Bars above the line mean you are improving. Bars below mean regression.")
-                    st.bar_chart(chart_df)
+                    st.caption("Blue bars mean you are improving. Red bars mean regression.")
+                    st.altair_chart(mom_chart, use_container_width=True)
