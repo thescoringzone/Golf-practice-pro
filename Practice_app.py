@@ -239,16 +239,25 @@ else:
     # ==========================================
     if st.session_state.page == "Weekly Dashboard":
         st.title(f"📊 Week {current_week} Dashboard")
-        st.write("Track your practice completion and weekly highlights.")
+        st.write("Track your practice completion and download your weekly report.")
         
-        # 1. Filter data purely for the current week and year
+        # 1. Date Filtering Logic
         df_logs['created_at'] = pd.to_datetime(df_logs['created_at'])
-        df_week = df_logs[
+        
+        # Current Week Data
+        df_cw = df_logs[
             (df_logs['created_at'].dt.isocalendar().week == current_week) & 
             (df_logs['created_at'].dt.isocalendar().year == current_year)
         ].copy()
         
-        # 2. Define the exact Combine Categories and their Games
+        # Last Week Data (For Momentum Math)
+        last_week_dt = local_now - datetime.timedelta(days=7)
+        lw_year, lw_week, _ = last_week_dt.isocalendar()
+        df_lw = df_logs[
+            (df_logs['created_at'].dt.isocalendar().week == lw_week) & 
+            (df_logs['created_at'].dt.isocalendar().year == lw_year)
+        ].copy()
+        
         combine_structure = {
             "Driving": ["10 Shot", "Max SS/BS"],
             "Scoring Zone Long": ["On-Course 150-200", "TM 150-200"],
@@ -259,21 +268,16 @@ else:
         }
         
         core_categories = list(combine_structure.keys())
-        
-        # Check completion
-        completed_games_this_week = df_week['game_name'].dropna().unique().tolist()
-        completed_cats_this_week = df_week['game_category'].dropna().unique().tolist()
+        completed_games_this_week = df_cw['game_name'].dropna().unique().tolist()
+        completed_cats_this_week = df_cw['game_category'].dropna().unique().tolist()
         
         completion_count = len([c for c in core_categories if c in completed_cats_this_week])
         progress_pct = completion_count / len(core_categories)
         
-        # 3. Render Progress Section
         st.subheader("🎯 Weekly Combine Checklist")
         st.progress(progress_pct, text=f"Combine Completion: {completion_count} / {len(core_categories)} Categories")
-        
         st.write("<br>", unsafe_allow_html=True)
         
-        # Render visual accordion checklist with navigation buttons
         for cat, games in combine_structure.items():
             is_cat_complete = cat in completed_cats_this_week
             cat_icon = "✅" if is_cat_complete else "⏳"
@@ -283,11 +287,9 @@ else:
                     is_game_complete = game in completed_games_this_week
                     game_icon = "✅" if is_game_complete else "⭕"
                     
-                    # Layout: Game name on the left, Button on the right
                     col1, col2 = st.columns([4, 1])
                     col1.write(f"{game_icon}  {game}")
                     
-                    # THE DEEP LINK ENGINE
                     if col2.button("Practice ➡️", key=f"nav_{cat}_{game}", use_container_width=True):
                         st.session_state.page = cat
                         if cat == "Driving": st.session_state.driving_radio = game
@@ -300,45 +302,124 @@ else:
             
         st.divider()
         
-        # 4. Weekly Highlights / Recent Activity
-        st.subheader("📝 This Week's Logged Sessions")
+        # ==========================================
+        # THE CADDIE REPORT (PDF GENERATOR)
+        # ==========================================
+        st.subheader("📄 Your Weekly Caddie Report")
+        st.write("*Generate a 1-page PDF summary of your week-over-week performance.*")
         
-        if df_week.empty:
-            st.info("No practice logged yet this week. Use the checklist above to start your combine!")
-        else:
-            # Sort newest first
-            df_week = df_week.sort_values('created_at', ascending=False)
+        # Build the Analytical Table
+        report_data = []
+        lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
+
+        for cat, games in combine_structure.items():
+            for game in games:
+                cw_game = df_cw[df_cw['game_name'] == game]
+                lw_game = df_lw[df_lw['game_name'] == game]
+                
+                if cw_game.empty:
+                    report_data.append([cat, game, "-", "-", "-"])
+                    continue
+                    
+                if game == "Max SS/BS":
+                    cw_avg_ss, cw_avg_bs = cw_game['score_primary'].mean(), cw_game['score_secondary'].mean()
+                    cw_best_ss, cw_best_bs = cw_game['score_primary'].max(), cw_game['score_secondary'].max()
+                    avg_str, best_str = f"{cw_avg_ss:.0f}/{cw_avg_bs:.0f}", f"{cw_best_ss:.0f}/{cw_best_bs:.0f}"
+                    pct_str = "-"
+                    
+                    if not lw_game.empty:
+                        lw_avg_ss = lw_game['score_primary'].mean()
+                        if lw_avg_ss > 0:
+                            pct = ((cw_avg_ss - lw_avg_ss) / lw_avg_ss) * 100
+                            pct_str = f"{pct:+.1f}% (SS)"
+                            
+                    report_data.append([cat, game, avg_str, best_str, pct_str])
+                else:
+                    cw_avg = cw_game['score_primary'].mean()
+                    is_lower_better = game in lower_is_better_games
+                    cw_best = cw_game['score_primary'].min() if is_lower_better else cw_game['score_primary'].max()
+                    
+                    if game in ["20 to 50"]: avg_str, best_str = f"{cw_avg:.0f}%", f"{cw_best:.0f}%"
+                    elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: avg_str, best_str = f"{cw_avg:.0f}", f"{cw_best:.0f}"
+                    else: avg_str, best_str = f"{cw_avg:.2f}", f"{cw_best:.2f}"
+                        
+                    pct_str = "-"
+                    if not lw_game.empty:
+                        lw_avg = lw_game['score_primary'].mean()
+                        if lw_avg != 0: 
+                            pct = ((cw_avg - lw_avg) / abs(lw_avg)) * 100
+                            if is_lower_better: pct = -pct # Flip sign so a drop in score shows as a + improvement!
+                            pct_str = f"{pct:+.1f}%"
+                            
+                    report_data.append([cat, game, avg_str, best_str, pct_str])
+                    
+        df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
+        
+        # Display the table visually in the app
+        st.dataframe(df_report, hide_index=True, use_container_width=True)
+
+        # PDF Compilation Function
+        def generate_pdf_report(df, week, year, username):
+            class PDF(FPDF):
+                def header(self):
+                    self.set_font("Helvetica", "B", 18)
+                    self.cell(0, 10, "GOLF PRACTICE PRO", ln=True, align="C")
+                    self.set_font("Helvetica", "", 11)
+                    self.cell(0, 8, f"Weekly Caddie Report | Player: {username}", ln=True, align="C")
+                    self.cell(0, 8, f"Week {week}, {year}", ln=True, align="C")
+                    self.ln(5)
+                    
+                def footer(self):
+                    self.set_y(-15)
+                    self.set_font("Helvetica", "I", 8)
+                    self.cell(0, 10, "Practice like a tour pro.", align="C")
+                    
+            pdf = PDF(orientation="P", unit="mm", format="A4")
+            pdf.add_page()
             
-            # Format a clean, human-readable dataframe for viewing
-            df_display = df_week[['created_at', 'game_category', 'game_name', 'score_primary', 'score_secondary']].copy()
-            df_display['created_at'] = df_display['created_at'].dt.strftime('%A, %b %d')
+            # Table Layout Config
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_fill_color(240, 240, 240)
+            col_widths = [45, 40, 30, 30, 45]
+            headers = ["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change (vs Last Wk)"]
             
-            # Clean up the display column names
-            df_display.rename(columns={
-                'created_at': 'Date',
-                'game_category': 'Category',
-                'game_name': 'Drill',
-                'score_primary': 'Score',
-                'score_secondary': 'Secondary Score'
-            }, inplace=True)
+            for i in range(len(headers)):
+                pdf.cell(col_widths[i], 10, headers[i], border=1, align="C", fill=True)
+            pdf.ln()
             
-            # Fill NaN secondary scores with a dash so it looks premium
-            df_display['Secondary Score'] = df_display['Secondary Score'].fillna("-")
-            
-            st.dataframe(df_display, hide_index=True, use_container_width=True)
-            
-            # 5. Quick Insights
-            st.write("<br>", unsafe_allow_html=True)
-            st.subheader("⚡ Weekly Insights")
-            c1, c2 = st.columns(2)
-            c1.metric("Total Sessions Logged", len(df_week))
-            
-            # Find the most practiced category this week
-            top_cat = df_week['game_category'].mode()
-            if not top_cat.empty:
-                c2.metric("Most Practiced Category", top_cat.iloc[0])
-            else:
-                c2.metric("Most Practiced Category", "N/A")
+            # Draw Table Rows
+            for _, row in df.iterrows():
+                pdf.set_font("Helvetica", "B", 8)
+                pdf.cell(col_widths[0], 10, str(row["Category"]), border=1)
+                
+                pdf.set_font("Helvetica", "", 8)
+                pdf.cell(col_widths[1], 10, str(row["Drill"]), border=1)
+                pdf.cell(col_widths[2], 10, str(row["Weekly Avg"]), border=1, align="C")
+                pdf.cell(col_widths[3], 10, str(row["Weekly Best"]), border=1, align="C")
+                
+                pct = str(row["% Change"])
+                if "+" in pct: pdf.set_text_color(0, 150, 0) # Green for improvement
+                elif "-" in pct and pct != "-": pdf.set_text_color(200, 0, 0) # Red for regression
+                    
+                pdf.cell(col_widths[4], 10, pct, border=1, align="C")
+                pdf.set_text_color(0, 0, 0) 
+                pdf.ln()
+                
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                pdf.output(tmp.name)
+                with open(tmp.name, "rb") as f:
+                    return f.read()
+
+        # Download Button
+        pdf_bytes = generate_pdf_report(df_report, current_week, current_year, st.session_state.current_user)
+        st.download_button(
+            label="📄 Download 1-Page PDF Report",
+            data=pdf_bytes,
+            file_name=f"Golf_Practice_Pro_Week_{current_week}.pdf",
+            mime="application/pdf",
+            type="primary",
+            use_container_width=True
+        )
            
     # ==========================================
     # PAGE: DRIVING
