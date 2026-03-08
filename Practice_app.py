@@ -190,7 +190,7 @@ else:
         "Scoring Zone Short", 
         "Short Game", 
         "Putting", 
-        "Stock Market Analytics"
+        "Your Practice Trends"
     ]
     
     for opt in nav_options:
