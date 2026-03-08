@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 import datetime
 import pytz
 import json
+import altair as alt
 from supabase import create_client
 
-# --- 1. APP CONFIG & PREMIUM CSS ---
+# ==========================================
+# 1. APP CONFIG & PREMIUM CSS
+# ==========================================
 st.set_page_config(page_title="Golf Practice Pro", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
@@ -29,7 +31,7 @@ st.markdown("""
     }
     
     /* Lock the charts from touch interactions */
-    [data-testid="stArrowVegaLiteChart"], canvas { 
+    [data-testid="stVegaLiteChart"], canvas { 
         pointer-events: none !important; 
     }
     
@@ -40,7 +42,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. DATABASE CONNECTION ---
+
+# ==========================================
+# 2. DATABASE CONNECTION
+# ==========================================
 @st.cache_resource
 def init_connection():
     url = st.secrets["supabase"]["url"]
@@ -52,40 +57,49 @@ try:
 except Exception as e:
     st.error("Database connection failed. Please check your Streamlit secrets.")
 
-# --- 3. GLOBAL STATE & TIME ENGINE ---
+
+# ==========================================
+# 3. GLOBAL STATE & TIME ENGINE
+# ==========================================
 if 'current_user' not in st.session_state: st.session_state.current_user = None
 if 'timezone' not in st.session_state: st.session_state.timezone = "UTC"
 if 'page' not in st.session_state: st.session_state.page = "Login"
 
+# Deep Link Sub-Navigation Memory
+if 'driving_radio' not in st.session_state: st.session_state.driving_radio = "10 Shot"
+if 'szl_radio' not in st.session_state: st.session_state.szl_radio = "On-Course 150-200"
+if 'szm_radio' not in st.session_state: st.session_state.szm_radio = "On-Course 100-150"
+if 'szs_radio' not in st.session_state: st.session_state.szs_radio = "On-Course 50-100"
+if 'sg_radio' not in st.session_state: st.session_state.sg_radio = "Par 21 WB"
+if 'putt_radio' not in st.session_state: st.session_state.putt_radio = "Pace"
+
 def get_local_time_info():
-    """Calculates the current week number and checks if today is Sunday based on user timezone."""
     tz = pytz.timezone(st.session_state.timezone)
     local_time = datetime.datetime.now(tz)
-    # isocalendar returns (year, week_number, weekday 1-7 where 7 is Sunday)
     year, week_num, weekday = local_time.isocalendar()
     is_sunday = (weekday == 7)
     return local_time, year, week_num, is_sunday
 
-# --- 4. DATA LOADER ---
+
+# ==========================================
+# 4. DATA LOADER & ICON GRID HELPER
+# ==========================================
 def load_all_logs(username):
     response = supabase.table("practice_logs").select("*").eq("user_name", username).execute()
     if response.data:
         return pd.DataFrame(response.data)
     else:
-        # If the database is empty, build an empty shell with the correct columns
         return pd.DataFrame(columns=[
             "id", "created_at", "user_name", "game_category", "game_name", 
             "score_primary", "score_secondary", "raw_data", "week_number"
         ])
-    
-   # --- 4.5 HELPER: MACBOOK ICON GRID ---
+
 def render_icon_grid(df_game, game_name):
     if df_game.empty:
         st.info("No practice sessions logged yet. Click 'New Entry' to start.")
         return
 
     cols = st.columns(4)
-    # Sort by newest first
     df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
     
     for i, (_, row) in enumerate(df_game.iterrows()):
@@ -102,13 +116,13 @@ def render_icon_grid(df_game, game_name):
                 if game_name == "Max SS/BS":
                     score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
                 elif game_name in ["20 to 50"]:
-                    score_str = f"{row['score_primary']:.0f}%" # Whole number with percentage
+                    score_str = f"{row['score_primary']:.0f}%" 
                 elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: 
-                    score_str = f"{row['score_primary']:.0f}" # Clean whole numbers
+                    score_str = f"{row['score_primary']:.0f}" 
                 else:
-                    score_str = f"{row['score_primary']:.1f}" # Decimals for averages
+                    score_str = f"{row['score_primary']:.1f}" 
 
-                # 3. Render Date and Score dynamically based on light/dark mode
+                # 3. Render the specific grid block
                 st.markdown(f"""
                 <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
                     <span style='color: gray; font-size: 0.9em;'>🗂️ {date_str}</span><br>
@@ -116,13 +130,11 @@ def render_icon_grid(df_game, game_name):
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # 4. Action Buttons
                 c1, c2 = st.columns(2)
                 
-                # 4a. The "View" Popover (Reads your JSON Locker!)
+                # Popover: View Matrix Data
                 with c1.popover("👁️ View", use_container_width=True):
                     st.markdown("**Session Data:**")
-                    # Check if this specific game saved a raw_data matrix
                     if isinstance(row['raw_data'], list) and len(row['raw_data']) > 0:
                         df_view = pd.DataFrame(row['raw_data'])
                         st.dataframe(df_view, hide_index=True, use_container_width=True)
@@ -130,17 +142,19 @@ def render_icon_grid(df_game, game_name):
                         st.write(f"**Score:** {score_str}")
                         st.caption("Manual entry game (no matrix data).")
                 
-                # 5. Safe Delete Feature
+                # Popover: Delete Record
                 with c2.popover("🗑️ Del", use_container_width=True):
                     st.markdown("**Delete this record?**")
                     st.caption("This cannot be undone.")
-                    
                     if st.button("Yes", key=f"confirm_del_{row['id']}", type="primary", use_container_width=True):
                         supabase.table("practice_logs").delete().eq("id", row['id']).execute()
                         st.success("Record deleted!")
                         st.rerun()
 
-# --- 5. ROUTING: LOGIN GATE ---
+
+# ==========================================
+# 5. ROUTING: LOGIN GATE
+# ==========================================
 if st.session_state.page == "Login" or not st.session_state.current_user:
     st.markdown("<h1 style='text-align: center; font-size: 4em; margin-top: 5%;'>Golf Practice Pro</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: gray;'>Elite Combine & Analytics</h3>", unsafe_allow_html=True)
@@ -150,8 +164,6 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
     with col2:
         with st.container(border=True):
             username_input = st.text_input("Player Username", placeholder="Enter username...").strip()
-            
-            # Common timezones for easy selection
             common_tzs = ["US/Eastern", "US/Central", "US/Mountain", "US/Pacific", "Europe/London", "Asia/Hong_Kong", "Australia/Sydney", "UTC"]
             selected_tz = st.selectbox("Your Local Timezone (For Weekly Reset)", common_tzs, index=0)
             
@@ -162,12 +174,12 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
                     st.session_state.page = "Weekly Dashboard"
                     st.rerun()
 
-# --- 6. ROUTING: SECURE PLATFORM ---
+
+# ==========================================
+# 6. ROUTING: SECURE PLATFORM & SIDEBAR
+# ==========================================
 else:
-    # Calculate Time Data
     local_now, current_year, current_week, is_sunday = get_local_time_info()
-    
-    # Load User Data
     df_logs = load_all_logs(st.session_state.current_user)
     
     # -- SIDEBAR NAVIGATION --
@@ -192,7 +204,7 @@ else:
         "Scoring Zone Short", 
         "Short Game", 
         "Putting", 
-        "Your practice trends"
+        "Your Practice Trends"
     ]
     
     for opt in nav_options:
@@ -200,7 +212,7 @@ else:
             st.session_state.page = opt
             st.rerun()
 
-    # -- SUNDAY DEADLINE WARNING --
+    # --- SUNDAY WARNING ---
     if is_sunday:
         st.warning("⚠️ **Reminder: Today is Sunday!** Your Weekly Dashboard resets tonight at midnight.")
 
@@ -218,7 +230,7 @@ else:
             (df_logs['created_at'].dt.isocalendar().year == current_year)
         ].copy()
         
-        # 2. Define the exact Combine Categories and their Games (Maintains strict order)
+        # 2. Define the exact Combine Categories and their Games
         combine_structure = {
             "Driving": ["10 Shot", "Max SS/BS"],
             "Scoring Zone Long": ["On-Course 150-200", "TM 150-200"],
@@ -241,7 +253,7 @@ else:
         st.subheader("🎯 Weekly Combine Checklist")
         st.progress(progress_pct, text=f"Combine Completion: {completion_count} / {len(core_categories)} Categories")
         
-        st.write("<br>", unsafe_allow_html=True) # Spacer
+        st.write("<br>", unsafe_allow_html=True)
         
         # Render visual accordion checklist with navigation buttons
         for cat, games in combine_structure.items():
@@ -257,9 +269,15 @@ else:
                     col1, col2 = st.columns([4, 1])
                     col1.write(f"{game_icon}  {game}")
                     
+                    # THE DEEP LINK ENGINE
                     if col2.button("Practice ➡️", key=f"nav_{cat}_{game}", use_container_width=True):
-                        # Route the user directly to the category page
                         st.session_state.page = cat
+                        if cat == "Driving": st.session_state.driving_radio = game
+                        elif cat == "Scoring Zone Long": st.session_state.szl_radio = game
+                        elif cat == "Scoring Zone Mid": st.session_state.szm_radio = game
+                        elif cat == "Scoring Zone Short": st.session_state.szs_radio = game
+                        elif cat == "Short Game": st.session_state.sg_radio = game
+                        elif cat == "Putting": st.session_state.putt_radio = game
                         st.rerun()
             
         st.divider()
@@ -303,21 +321,21 @@ else:
                 c2.metric("Most Practiced Category", top_cat.iloc[0])
             else:
                 c2.metric("Most Practiced Category", "N/A")
-
+           
     # ==========================================
     # PAGE: DRIVING
     # ==========================================
     elif st.session_state.page == "Driving":
         st.title("🚀 Driving Combine")
         
-        # State managers to flip between "Grid" view and "New Entry" view
         if 'mode_10shot' not in st.session_state: st.session_state.mode_10shot = "grid"
         if 'mode_ssbs' not in st.session_state: st.session_state.mode_ssbs = "grid"
 
-        game_tabs = st.tabs(["10 Shot Game", "Max SS/BS"])
+        # DEEP LINK HORIZONTAL RADIO
+        selected_game = st.radio("Select Drill:", ["10 Shot", "Max SS/BS"], horizontal=True, key="driving_radio", label_visibility="collapsed")
         
-        # --- TAB 1: 10 SHOT GAME ---
-        with game_tabs[0]:
+        # --- DRILL: 10 SHOT ---
+        if selected_game == "10 Shot":
             st.subheader("The 10 Shot Game")
             st.write("*Hit 10 shots. Carry distance (yds/m) minus offline total (ft). Average is your final score.*")
             
@@ -338,7 +356,6 @@ else:
                 st.write("### New 10 Shot Log")
                 st.caption("Tap a cell below to edit your distances.")
                 
-                # Create a temporary dataframe for the sleek mobile spreadsheet
                 if 'df_10shot_matrix' not in st.session_state:
                     st.session_state.df_10shot_matrix = pd.DataFrame({
                         "Shot": [f"Shot {i+1}" for i in range(10)],
@@ -346,19 +363,17 @@ else:
                         "Offline (ft)": [0.0] * 10
                     })
                 
-                # Render the interactive mobile-friendly spreadsheet
                 edited_df = st.data_editor(
                     st.session_state.df_10shot_matrix,
                     hide_index=True,
                     use_container_width=True,
                     column_config={
-                        "Shot": st.column_config.TextColumn("Shot", disabled=True), # Lock the Shot column
+                        "Shot": st.column_config.TextColumn("Shot", disabled=True),
                         "Carry (yds/m)": st.column_config.NumberColumn("Carry (yds/m)", step=1.0),
                         "Offline (ft)": st.column_config.NumberColumn("Offline (ft)", step=1.0)
                     }
                 )
                 
-                # The Math: (Carry - Offline). Average of all 10.
                 edited_df['Score'] = edited_df['Carry (yds/m)'] - edited_df['Offline (ft)']
                 final_score = edited_df['Score'].mean()
                 
@@ -366,27 +381,16 @@ else:
                 st.metric("🎯 Final Average Score", f"{final_score:.1f}")
                 
                 if st.button("💾 Save 10 Shot Game", type="primary", use_container_width=True):
-                    # Convert the dataframe back into a JSON-friendly list of dictionaries
                     raw_json = edited_df.to_dict(orient='records')
-                    
-                    data = {
-                        "user_name": st.session_state.current_user,
-                        "game_category": "Driving",
-                        "game_name": "10 Shot",
-                        "score_primary": final_score,
-                        "raw_data": raw_json,
-                        "week_number": current_week
-                    }
+                    data = {"user_name": st.session_state.current_user, "game_category": "Driving", "game_name": "10 Shot", "score_primary": final_score, "raw_data": raw_json, "week_number": current_week}
                     supabase.table("practice_logs").insert(data).execute()
-                    st.success("Saved to your database!")
-                    
-                    # Clear the matrix for the next time
+                    st.success("Saved!")
                     del st.session_state['df_10shot_matrix']
                     st.session_state.mode_10shot = "grid"
                     st.rerun()
 
-        # --- TAB 2: MAX SS/BS ---
-        with game_tabs[1]:
+        # --- DRILL: SPEED LIMITS ---
+        elif selected_game == "Max SS/BS":
             st.subheader("Speed Limits (SS/BS)")
             st.write("*Your Max Swing Speed and Ball Speed (in mph) with your Driver today.*")
             
@@ -404,32 +408,20 @@ else:
                     st.rerun()
                 
                 st.divider()
-                st.write("### New Speed Log")
                 c1, c2 = st.columns(2)
                 ss = c1.number_input("Max Swing Speed (mph)", min_value=0.0, step=1.0, value=110.0)
                 bs = c2.number_input("Max Ball Speed (mph)", min_value=0.0, step=1.0, value=160.0)
                 
                 st.divider()
-                # Visualized as SS/BS, just like you wanted
                 st.metric("⚡ Final Speed Score (SS/BS)", f"{ss:.0f} / {bs:.0f}")
                 
                 if st.button("💾 Save Speed Limits", type="primary", use_container_width=True):
-                    data = {
-                        "user_name": st.session_state.current_user,
-                        "game_category": "Driving",
-                        "game_name": "Max SS/BS",
-                        "score_primary": ss,           # Stored separately so Stock Market charts work!
-                        "score_secondary": bs,         # Stored separately so Stock Market charts work!
-                        "week_number": current_week
-                    }
+                    data = {"user_name": st.session_state.current_user, "game_category": "Driving", "game_name": "Max SS/BS", "score_primary": ss, "score_secondary": bs, "week_number": current_week}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Speeds locked in!")
                     st.session_state.mode_ssbs = "grid"
                     st.rerun()
-                    
-    # ==========================================
-    # OTHER PAGES (Placeholders for Part 2 & 3)
-    # ==========================================
+
     # ==========================================
     # PAGE: SCORING ZONE LONG
     # ==========================================
@@ -439,12 +431,13 @@ else:
         if 'mode_szl_oc' not in st.session_state: st.session_state.mode_szl_oc = "grid"
         if 'mode_szl_tm' not in st.session_state: st.session_state.mode_szl_tm = "grid"
 
-        tabs = st.tabs(["On-Course 150-200", "TM 150-200"])
+        selected_game = st.radio("Select Drill:", ["On-Course 150-200", "TM 150-200"], horizontal=True, key="szl_radio", label_visibility="collapsed")
         
-        # --- TAB 1: ON-COURSE LONG ---
-        with tabs[0]:
+        # --- DRILL: ON COURSE ---
+        if selected_game == "On-Course 150-200":
             st.write("*Log your 150-200 yards/meter scoring zone scores when you practice on the course.*")
             st.caption("**Rules:** 5m from target (not pin) is a birdie, 10m is a par. Outside of 10m is bogey. Penalty shot is double.")
+            
             if st.session_state.mode_szl_oc == "grid":
                 if st.button("➕ New Entry", key="new_szl_oc", type="primary"):
                     st.session_state.mode_szl_oc = "entry"
@@ -460,7 +453,6 @@ else:
                 st.divider()
                 
                 c1, c2 = st.columns(2)
-                # value=0 forces this to be a whole number (integer)
                 total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0, step=1)
                 total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1)
                 
@@ -474,9 +466,10 @@ else:
                     st.session_state.mode_szl_oc = "grid"
                     st.rerun()
 
-        # --- TAB 2: TM LONG ---
-        with tabs[1]:
+        # --- DRILL: TRACKMAN ---
+        elif selected_game == "TM 150-200":
             st.write("*Launch monitor: Randomised systematic game from 150-200 with all pin locations/green shapes. 10 shot game. Record Strokes Gained.*")
+            
             if st.session_state.mode_szl_tm == "grid":
                 if st.button("➕ New Entry", key="new_szl_tm", type="primary"):
                     st.session_state.mode_szl_tm = "entry"
@@ -509,12 +502,13 @@ else:
         if 'mode_szm_oc' not in st.session_state: st.session_state.mode_szm_oc = "grid"
         if 'mode_szm_tm' not in st.session_state: st.session_state.mode_szm_tm = "grid"
 
-        tabs = st.tabs(["On-Course 100-150", "TM 100-150"])
+        selected_game = st.radio("Select Drill:", ["On-Course 100-150", "TM 100-150"], horizontal=True, key="szm_radio", label_visibility="collapsed")
         
-        # --- TAB 1: ON-COURSE MID ---
-        with tabs[0]:
+        # --- DRILL: ON COURSE ---
+        if selected_game == "On-Course 100-150":
             st.write("*Log your 100-150 yards/meter scoring zone scores when you practice on the course.*")
             st.caption("**Rules:** 4m from target (not pin) is a birdie, 8m is a par. Outside of 8m is bogey. Penalty shot is double.")
+            
             if st.session_state.mode_szm_oc == "grid":
                 if st.button("➕ New Entry", key="new_szm_oc", type="primary"):
                     st.session_state.mode_szm_oc = "entry"
@@ -543,9 +537,10 @@ else:
                     st.session_state.mode_szm_oc = "grid"
                     st.rerun()
 
-        # --- TAB 2: TM MID ---
-        with tabs[1]:
+        # --- DRILL: TRACKMAN ---
+        elif selected_game == "TM 100-150":
             st.write("*Launch monitor: Randomised systematic game from 100-150 with all pin locations/green shapes. 10 shot game. Record Strokes Gained.*")
+            
             if st.session_state.mode_szm_tm == "grid":
                 if st.button("➕ New Entry", key="new_szm_tm", type="primary"):
                     st.session_state.mode_szm_tm = "entry"
@@ -578,12 +573,13 @@ else:
         if 'mode_szs_oc' not in st.session_state: st.session_state.mode_szs_oc = "grid"
         if 'mode_szs_tm' not in st.session_state: st.session_state.mode_szs_tm = "grid"
 
-        tabs = st.tabs(["On-Course 50-100", "TM 50-100"])
+        selected_game = st.radio("Select Drill:", ["On-Course 50-100", "TM 50-100"], horizontal=True, key="szs_radio", label_visibility="collapsed")
         
-        # --- TAB 1: ON-COURSE SHORT ---
-        with tabs[0]:
+        # --- DRILL: ON COURSE ---
+        if selected_game == "On-Course 50-100":
             st.write("*Log your 50-100 yards/meter scoring zone scores when you practice on the course.*")
             st.caption("**Rules:** 3m from target (not pin) is a birdie, 6m is a par. Outside of 6m is bogey. Penalty shot is double.")
+            
             if st.session_state.mode_szs_oc == "grid":
                 if st.button("➕ New Entry", key="new_szs_oc", type="primary"):
                     st.session_state.mode_szs_oc = "entry"
@@ -612,9 +608,10 @@ else:
                     st.session_state.mode_szs_oc = "grid"
                     st.rerun()
 
-        # --- TAB 2: TM SHORT ---
-        with tabs[1]:
+        # --- DRILL: TRACKMAN ---
+        elif selected_game == "TM 50-100":
             st.write("*Launch monitor: Hit each shot from 50-100 in 5yd/m increments, max 2yd/m off in carry. You can only progress if you complete the current yardage.*")
+            
             if st.session_state.mode_szs_tm == "grid":
                 if st.button("➕ New Entry", key="new_szs_tm", type="primary"):
                     st.session_state.mode_szs_tm = "entry"
@@ -637,7 +634,7 @@ else:
                     st.success("Ladder complete and saved!")
                     st.session_state.mode_szs_tm = "grid"
                     st.rerun()
-                    
+
     # ==========================================
     # PAGE: SHORT GAME
     # ==========================================
@@ -648,10 +645,10 @@ else:
         if 'mode_sg_2050' not in st.session_state: st.session_state.mode_sg_2050 = "grid"
         if 'mode_sg_6ft' not in st.session_state: st.session_state.mode_sg_6ft = "grid"
 
-        tabs = st.tabs(["Par 21 WB", "20 to 50", "6ft Game"])
+        selected_game = st.radio("Select Drill:", ["Par 21 WB", "20 to 50", "6ft Game"], horizontal=True, key="sg_radio", label_visibility="collapsed")
         
-        # --- TAB 1: PAR 21 WB ---
-        with tabs[0]:
+        # --- DRILL: PAR 21 ---
+        if selected_game == "Par 21 WB":
             st.write("*A 9 hole short game course, with 3 easy, 3 medium, and 3 hard shots all from green-side up to 50 yards.*")
             st.caption("**Rules:** Drop 2 balls per hole. Play the worst ball amongst the 2 and hole out. Par is 2 per hole. Tour average is 21. If too advanced, use 1 ball.")
             
@@ -678,8 +675,8 @@ else:
                     st.session_state.mode_sg_par21 = "grid"
                     st.rerun()
 
-        # --- TAB 2: 20 TO 50 MATRIX ---
-        with tabs[1]:
+        # --- DRILL: 20 TO 50 ---
+        elif selected_game == "20 to 50":
             st.write("*5 balls from 20 yards. Record how many end up within 3ft, 6ft, 10ft. Repeat from 30, 40, and 50 yards.*")
             st.caption("**Rules:** See your final percentage. Randomise order and lies to vary difficulty. Max 5 total successful shots logged per yardage row.")
             
@@ -697,7 +694,6 @@ else:
                     st.rerun()
                 st.divider()
                 st.write("### 20 to 50 Tracker")
-                st.caption("Tap cells to enter how many shots landed in each zone (0-5).")
                 
                 if 'df_2050_matrix' not in st.session_state:
                     st.session_state.df_2050_matrix = pd.DataFrame({
@@ -706,7 +702,7 @@ else:
                         "6ft": [0, 0, 0, 0],
                         "10ft": [0, 0, 0, 0]
                     })
-                
+                    
                 edited_df = st.data_editor(
                     st.session_state.df_2050_matrix,
                     hide_index=True,
@@ -719,27 +715,17 @@ else:
                     }
                 )
                 
-                # Cumulative Math calculations (Assuming 20 total shots for the game)
-                tot_3ft_only = edited_df["3ft"].sum()
-                tot_6ft_only = edited_df["6ft"].sum()
-                tot_10ft_only = edited_df["10ft"].sum()
-                
-                # Add inner circles to outer circles
-                cum_3ft = tot_3ft_only
-                cum_6ft = tot_3ft_only + tot_6ft_only
-                cum_10ft = tot_3ft_only + tot_6ft_only + tot_10ft_only
+                cum_3ft = edited_df["3ft"].sum()
+                cum_6ft = cum_3ft + edited_df["6ft"].sum()
+                cum_10ft = cum_6ft + edited_df["10ft"].sum()
                 
                 pct_3ft = (cum_3ft / 20.0) * 100
                 pct_6ft = (cum_6ft / 20.0) * 100
                 pct_10ft = (cum_10ft / 20.0) * 100
                 
-                # Final score is strictly the 6ft cumulative accuracy
-                final_pct = pct_6ft 
-                
-                # Validation check warning to prevent bad math
                 row_sums = edited_df["3ft"] + edited_df["6ft"] + edited_df["10ft"]
-                if (row_sums > 5).any():
-                    st.warning("⚠️ Careful! One of your yardage rows adds up to more than 5 shots. Please correct it to save.")
+                if (row_sums > 5).any(): 
+                    st.warning("⚠️ Careful! One of your yardage rows adds up to more than 5 shots.")
                 
                 c1, c2, c3 = st.columns(3)
                 c1.metric("3ft Accuracy", f"{pct_3ft:.0f}%")
@@ -747,27 +733,19 @@ else:
                 c3.metric("10ft Accuracy", f"{pct_10ft:.0f}%")
                 
                 st.divider()
-                st.metric("🎯 Final Combined Score (6ft Accuracy)", f"{final_pct:.0f}%")
+                st.metric("🎯 Final Combined Score (6ft Accuracy)", f"{pct_6ft:.0f}%")
                 
-                # Disable the save button if a row has more than 5 shots recorded
                 if st.button("💾 Save 20 to 50 Log", type="primary", use_container_width=True, disabled=(row_sums > 5).any()):
                     raw_json = edited_df.to_dict(orient='records')
-                    data = {
-                        "user_name": st.session_state.current_user,
-                        "game_category": "Short Game",
-                        "game_name": "20 to 50",
-                        "score_primary": final_pct,
-                        "raw_data": raw_json,
-                        "week_number": current_week
-                    }
+                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "20 to 50", "score_primary": pct_6ft, "raw_data": raw_json, "week_number": current_week}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     del st.session_state['df_2050_matrix']
                     st.session_state.mode_sg_2050 = "grid"
                     st.rerun()
 
-        # --- TAB 3: 6FT GAME ---
-        with tabs[2]:
+        # --- DRILL: 6FT GAME ---
+        elif selected_game == "6ft Game":
             st.write("*You have 2 lives. Choose random shots within 20 yards. Chip within 6ft = survive. Outside 6ft = lose 1 life.*")
             st.caption("**Rules:** Within 3ft = regain 1 life. Hole out = regain 2 lives. Randomise lies and pins. Record total holes played when you lose all lives.")
             
@@ -793,7 +771,7 @@ else:
                     st.success("Saved!")
                     st.session_state.mode_sg_6ft = "grid"
                     st.rerun()
-                    
+
     # ==========================================
     # PAGE: PUTTING
     # ==========================================
@@ -804,10 +782,10 @@ else:
         if 'mode_putt_6912' not in st.session_state: st.session_state.mode_putt_6912 = "grid"
         if 'mode_putt_28' not in st.session_state: st.session_state.mode_putt_28 = "grid"
 
-        tabs = st.tabs(["Pace (Lag)", "6-9-12", "2-8 Drill"])
+        selected_game = st.radio("Select Drill:", ["Pace", "6-9-12", "2-8 Drill"], horizontal=True, key="putt_radio", label_visibility="collapsed")
         
-        # --- TAB 1: PACE (LAG) ---
-        with tabs[0]:
+        # --- DRILL: PACE ---
+        if selected_game == "Pace":
             st.write("*You have 3 lives. Hit random putts from 20-50ft. You lose a life if your putt finishes outside one putter length.*")
             st.caption("**Rules:** Count your consecutive putts inside a putter length. A miss costs a life and resets your streak to 0. Record your highest streak from the 3 lives.")
             
@@ -834,8 +812,8 @@ else:
                     st.session_state.mode_putt_pace = "grid"
                     st.rerun()
 
-        # --- TAB 2: 6-9-12 ---
-        with tabs[1]:
+        # --- DRILL: 6-9-12 ---
+        elif selected_game == "6-9-12":
             st.write("*Hit randomised putts in order: 6ft, 9ft, 12ft, 6ft, 9ft, 12ft... until you hole at least 50ft of putts.*")
             st.caption("**Rules:** Keep track of the total distance holed. Record the total number of putts it took to reach or exceed 50ft.")
             
@@ -862,8 +840,8 @@ else:
                     st.session_state.mode_putt_6912 = "grid"
                     st.rerun()
 
-        # --- TAB 3: 2-8 DRILL ---
-        with tabs[2]:
+        # --- DRILL: 2-8 DRILL ---
+        elif selected_game == "2-8 Drill":
             st.write("*Ladder drill: Make a putt from 2ft, 3ft, 4ft, 5ft, 6ft, 7ft, and 8ft consecutively.*")
             st.caption("**Rules:** If you miss, you must start over at 2ft. Record the total number of putts it took to complete the ladder. *Note: You can randomise the order of distances to increase difficulty.*")
             
@@ -897,15 +875,6 @@ else:
         st.title("📈 Your Practice Trends")
         st.write("Track your long-term progress, historical averages, and Running Baselines.")
         
-        # Double CSS Lock: Ensures no zooming/scrolling glitches with your finger
-        st.markdown("""
-            <style>
-            [data-testid="stVegaLiteChart"], canvas { 
-                pointer-events: none !important; 
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
         if df_logs.empty:
             st.info("No practice data logged yet. Head to the combine pages to log your first session!")
         else:
@@ -923,17 +892,12 @@ else:
                 col_a, col_b = st.columns(2)
                 available_games = sorted(df_logs['game_name'].unique().tolist())
                 selected_game = col_a.selectbox("Select a Drill to Analyze", available_games)
-                
-                timeline = col_b.selectbox(
-                    "Select Timeframe", 
-                    ["Weekly Averages", "Monthly Averages", "6-Month Averages", "Yearly Averages"]
-                )
+                timeline = col_b.selectbox("Select Timeframe", ["Weekly Averages", "Monthly Averages", "6-Month Averages", "Yearly Averages"])
                 
                 df_trend = df_logs[df_logs['game_name'] == selected_game].copy()
                 df_trend['created_at'] = pd.to_datetime(df_trend['created_at'])
                 
-                lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", 
-                                         "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
+                lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
                 is_lower_better = selected_game in lower_is_better_games
                 
                 if selected_game == "Max SS/BS":
@@ -945,7 +909,6 @@ else:
                     pb = df_trend['score_primary'].min() if is_lower_better else df_trend['score_primary'].max()
                     avg = df_trend['score_primary'].mean()
                     
-                # Chronological Sorting Engine
                 if timeline == "Weekly Averages":
                     df_trend['Period_Sort'] = df_trend['created_at'].dt.to_period('W').dt.start_time
                     df_trend['Group'] = df_trend['created_at'].dt.strftime('Week %V, %Y')
@@ -970,12 +933,10 @@ else:
                     c1.metric("🏆 All-Time Personal Best", f"{pb_ss:.0f} / {pb_bs:.0f}")
                     c2.metric("📊 All-Time Average", f"{avg_ss:.0f} / {avg_bs:.0f}")
                     
-                    # Smart Zooming Line Chart for Swing Speed
                     ss_chart = alt.Chart(df_chart).mark_line(
-                        point=alt.OverlayMarkDef(color="#FF4B4B", size=100, filled=True), 
-                        color="#FF4B4B", strokeWidth=3
+                        point=alt.OverlayMarkDef(color="#FF4B4B", size=100, filled=True), color="#FF4B4B", strokeWidth=3
                     ).encode(
-                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45), sort=None),
                         y=alt.Y('score_primary:Q', scale=alt.Scale(zero=False), title="Swing Speed (mph)"),
                         tooltip=[]
                     ).properties(height=250)
@@ -983,12 +944,10 @@ else:
                     st.write(f"### Swing Speed History ({timeline})")
                     st.altair_chart(ss_chart, use_container_width=True) 
 
-                    # Smart Zooming Line Chart for Ball Speed
                     bs_chart = alt.Chart(df_chart).mark_line(
-                        point=alt.OverlayMarkDef(color="#0068C9", size=100, filled=True), 
-                        color="#0068C9", strokeWidth=3
+                        point=alt.OverlayMarkDef(color="#0068C9", size=100, filled=True), color="#0068C9", strokeWidth=3
                     ).encode(
-                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45), sort=None),
                         y=alt.Y('score_secondary:Q', scale=alt.Scale(zero=False), title="Ball Speed (mph)"),
                         tooltip=[]
                     ).properties(height=250)
@@ -999,23 +958,18 @@ else:
                     df_agg = df_trend.groupby(['Period_Sort', 'Group'], sort=False)['score_primary'].mean().reset_index()
                     df_chart = df_agg.copy()
                     
-                    if selected_game in ["20 to 50"]:
-                        pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
-                    elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]:
-                        pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
-                    else:
-                        pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
+                    if selected_game in ["20 to 50"]: pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
+                    elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
+                    else: pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
                         
                     c1, c2 = st.columns(2)
                     c1.metric("🏆 All-Time Personal Best", pb_str)
                     c2.metric("📊 All-Time Average", avg_str)
                     
-                    # Smart Zooming Line Chart for General Drills
                     chart = alt.Chart(df_chart).mark_line(
-                        point=alt.OverlayMarkDef(color="#0068C9", size=100, filled=True), 
-                        color="#0068C9", strokeWidth=3
+                        point=alt.OverlayMarkDef(color="#0068C9", size=100, filled=True), color="#0068C9", strokeWidth=3
                     ).encode(
-                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45), sort=None),
                         y=alt.Y('score_primary:Q', scale=alt.Scale(zero=False), title="Score"),
                         tooltip=[]
                     ).properties(height=300)
@@ -1032,17 +986,11 @@ else:
                 col_a, col_b = st.columns(2)
                 categories = sorted(df_logs['game_category'].dropna().unique().tolist())
                 selected_cat = col_a.selectbox("Select Category", categories)
-                
-                timeline = col_b.selectbox(
-                    "Select Timeframe", 
-                    ["Weekly Averages", "Monthly Averages", "6-Month Averages", "Yearly Averages"],
-                    key="cat_timeline"
-                )
+                timeline = col_b.selectbox("Select Timeframe", ["Weekly Averages", "Monthly Averages", "6-Month Averages", "Yearly Averages"], key="cat_timeline")
                 
                 df_cat = df_logs[df_logs['game_category'] == selected_cat].copy()
                 df_cat['created_at'] = pd.to_datetime(df_cat['created_at'])
                 
-                # Chronological Sorting Engine
                 if timeline == "Weekly Averages":
                     df_cat['Period_Sort'] = df_cat['created_at'].dt.to_period('W').dt.start_time
                     df_cat['Group'] = df_cat['created_at'].dt.strftime('Week %V, %Y')
@@ -1065,33 +1013,21 @@ else:
                     st.warning(f"⏳ **More data needed.** You only have one period of data for {selected_cat}. The Running Baseline requires at least two periods to calculate your momentum. Log another session next week!")
                 else:
                     pct_diff = pivot.pct_change() * 100
-                    
                     lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
                     for col in pct_diff.columns:
                         if col in lower_is_better_games:
                             pct_diff[col] = pct_diff[col] * -1 
                             
                     category_momentum = pct_diff.mean(axis=1).dropna()
-                    
                     chart_df = pd.DataFrame(category_momentum, columns=["Momentum Delta (%)"]).reset_index()
                     latest_momentum = category_momentum.iloc[-1]
                     
-                    st.metric(
-                        f"Current {selected_cat} Momentum", 
-                        f"{latest_momentum:+.1f}%", 
-                        delta=f"{latest_momentum:+.1f}% improvement vs previous period",
-                        delta_color="normal"
-                    )
+                    st.metric(f"Current {selected_cat} Momentum", f"{latest_momentum:+.1f}%", delta=f"{latest_momentum:+.1f}% improvement vs previous period", delta_color="normal")
                     
-                    # Momentum uses Bar Charts because they safely originate from 0
                     mom_chart = alt.Chart(chart_df).mark_bar().encode(
-                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
+                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45), sort=None),
                         y=alt.Y('Momentum Delta (%):Q', title="Momentum (%)"), 
-                        color=alt.condition(
-                            alt.datum['Momentum Delta (%)'] > 0,
-                            alt.value("#0068C9"),  # Blue for improvement
-                            alt.value("#FF4B4B")   # Red for regression
-                        ),
+                        color=alt.condition(alt.datum['Momentum Delta (%)'] > 0, alt.value("#0068C9"), alt.value("#FF4B4B")),
                         tooltip=[]
                     ).properties(height=300)
                     
