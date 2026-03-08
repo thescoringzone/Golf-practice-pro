@@ -879,8 +879,11 @@ else:
                 col1.metric("🏆 All-Time Personal Best", f"{pb_ss:.0f} / {pb_bs:.0f}")
                 col2.metric("📊 All-Time Average", f"{avg_ss:.0f} / {avg_bs:.0f}")
                 
-                st.write(f"### Speed History ({timeline})")
-                st.line_chart(chart_data, color=["#FF4B4B", "#0068C9"]) 
+                st.write(f"### Swing Speed History ({timeline})")
+                st.line_chart(chart_data[['Swing Speed']], color=["#FF4B4B"]) # Red line for SS
+                
+                st.write(f"### Ball Speed History ({timeline})")
+                st.line_chart(chart_data[['Ball Speed']], color=["#0068C9"]) # Blue line for BS
             else:
                 # Format numbers specifically to the game type
                 if selected_game in ["20 to 50"]:
