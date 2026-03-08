@@ -12,9 +12,9 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Montserrat:wght@300;400;600&display=swap');
     
-    /* 1. BRING BACK THE PREMIUM FONTS GLOBALLY */
-    html, body, [class*="css"], [class*="st-"] {
-        font-family: 'Montserrat', sans-serif !important;
+    /* Safely target text elements without overpowering Streamlit's UI classes */
+    html, body, p, div, label, li, span, .stMarkdown, .stText {
+        font-family: 'Montserrat', sans-serif;
     }
     
     h1, h2, h3, h4, h5, h6 {
@@ -22,16 +22,17 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
-    /* 2. THE IRONCLAD ICON SHIELD */
-    /* This forces all UI arrows, popovers, and sidebar toggles to stay as symbols */
-    .material-symbols-rounded, 
-    .stIcon, 
-    [data-testid="stIconMaterial"], 
-    span:has(> .material-symbols-rounded) {
+    /* Re-enforce the Material Icons font specifically for UI elements */
+    .material-symbols-rounded, .stIcon, [data-testid="stIconMaterial"], i, svg {
         font-family: 'Material Symbols Rounded' !important;
     }
     
-    /* Center align the numbers in the mobile matrix */
+    /* Lock the charts from touch interactions */
+    [data-testid="stArrowVegaLiteChart"], canvas { 
+        pointer-events: none !important; 
+    }
+    
+    /* Center align the numbers in the mobile matrices */
     input[type="number"] { 
         text-align: center; 
     }
@@ -873,7 +874,8 @@ else:
                     
                 if selected_game == "Max SS/BS":
                     df_agg = df_trend.groupby(['Period_Sort', 'Group'], sort=False)[['score_primary', 'score_secondary']].max().reset_index()
-                    chart_data = df_agg.set_index('Group')
+                    # Only select the two score columns before renaming
+                    chart_data = df_agg.set_index('Group')[['score_primary', 'score_secondary']]
                     chart_data.columns = ['Swing Speed', 'Ball Speed']
                     
                     c1, c2 = st.columns(2)
@@ -886,8 +888,23 @@ else:
                     st.bar_chart(chart_data[['Ball Speed']], color=["#0068C9"]) 
                 else:
                     df_agg = df_trend.groupby(['Period_Sort', 'Group'], sort=False)['score_primary'].mean().reset_index()
-                    chart_data = df_agg.set_index('Group')
+                    # Only select the single score column before renaming
+                    chart_data = df_agg.set_index('Group')[['score_primary']]
                     chart_data.columns = ['Score']
+                    
+                    if selected_game in ["20 to 50"]:
+                        pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
+                    elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]:
+                        pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
+                    else:
+                        pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
+                        
+                    c1, c2 = st.columns(2)
+                    c1.metric("🏆 All-Time Personal Best", pb_str)
+                    c2.metric("📊 All-Time Average", avg_str)
+                    
+                    st.write(f"### Performance History ({timeline})")
+                    st.bar_chart(chart_data)
                     
                     if selected_game in ["20 to 50"]:
                         pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
