@@ -106,7 +106,7 @@ def render_icon_grid(df_game, game_name):
                 else:
                     score_str = f"{row['score_primary']:.1f}" # Decimals for averages
 
-                # 3. Render Date and Score 
+                # 3. Render Date and Score dynamically based on light/dark mode
                 st.markdown(f"""
                 <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
                     <span style='color: gray; font-size: 0.9em;'>🗂️ {date_str}</span><br>
@@ -117,8 +117,16 @@ def render_icon_grid(df_game, game_name):
                 # 4. Action Buttons
                 c1, c2 = st.columns(2)
                 
-                if c1.button("👁️ View", key=f"view_{row['id']}", use_container_width=True):
-                    st.toast("Data expansion module coming in Part 4!", icon="⏳")
+                # 4a. The "View" Popover (Reads your JSON Locker!)
+                with c1.popover("👁️ View", use_container_width=True):
+                    st.markdown("**Session Data:**")
+                    # Check if this specific game saved a raw_data matrix
+                    if isinstance(row['raw_data'], list) and len(row['raw_data']) > 0:
+                        df_view = pd.DataFrame(row['raw_data'])
+                        st.dataframe(df_view, hide_index=True, use_container_width=True)
+                    else:
+                        st.write(f"**Score:** {score_str}")
+                        st.caption("Manual entry game (no matrix data).")
                 
                 # 5. Safe Delete Feature
                 with c2.popover("🗑️ Del", use_container_width=True):
