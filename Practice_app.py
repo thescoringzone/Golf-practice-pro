@@ -801,58 +801,84 @@ else:
     # ==========================================
     # PAGE: YOUR PRACTICE TRENDS
     # ==========================================
-    elif st.session_state.page == "Your practice trends":
+    # We use .lower() here as a safety net so it always matches the sidebar!
+    elif st.session_state.page.lower() == "your practice trends":
         st.title("📈 Your Practice Trends")
         st.write("Track your long-term progress, historical averages, and Personal Bests.")
         
         if df_logs.empty:
             st.info("No practice data logged yet. Head to the combine pages to log your first session!")
         else:
-            # 1. Dropdown to select the drill
+            # 1. Selection Controls
+            col_a, col_b = st.columns(2)
             available_games = sorted(df_logs['game_name'].unique().tolist())
-            selected_game = st.selectbox("Select a Drill to Analyze", available_games)
+            selected_game = col_a.selectbox("Select a Drill to Analyze", available_games)
             
-            # 2. Filter and prepare data for the chart
+            timeline = col_b.selectbox(
+                "Select Timeframe", 
+                ["Daily (All Time)", "Weekly Averages", "Monthly Averages", "6-Month Averages", "Yearly Averages"]
+            )
+            
+            # 2. Filter and prepare raw data
             df_trend = df_logs[df_logs['game_name'] == selected_game].copy()
             df_trend['created_at'] = pd.to_datetime(df_trend['created_at'])
             df_trend = df_trend.sort_values('created_at')
-            # Create a clean date for the x-axis
-            df_trend['Date'] = df_trend['created_at'].dt.strftime('%b %d')
             
-            # 3. Determine if "Lower is Better" to accurately calculate Personal Best
+            # 3. Determine if "Lower is Better" for Personal Bests
             lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", 
                                      "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
             is_lower_better = selected_game in lower_is_better_games
             
-            st.divider()
-            
-            col1, col2 = st.columns(2)
-            
-            # 4. Special Case: Render a Dual-Line Chart for SS/BS
+            # Calculate absolute PB and overall Average from RAW data (so your all-time best isn't smoothed out)
             if selected_game == "Max SS/BS":
                 pb_ss = df_trend['score_primary'].max()
                 pb_bs = df_trend['score_secondary'].max()
                 avg_ss = df_trend['score_primary'].mean()
                 avg_bs = df_trend['score_secondary'].mean()
-                
-                col1.metric("🏆 Personal Best (Max SS/BS)", f"{pb_ss:.0f} / {pb_bs:.0f}")
-                col2.metric("📊 All-Time Average", f"{avg_ss:.0f} / {avg_bs:.0f}")
-                
-                st.write("### Speed History")
-                chart_data = df_trend[['Date', 'score_primary', 'score_secondary']].set_index('Date')
-                chart_data.columns = ['Swing Speed', 'Ball Speed']
-                st.line_chart(chart_data, color=["#FF4B4B", "#0068C9"]) # Red and Blue lines
-                
-            # 5. Standard Case: Render Single Line Chart for all other games
             else:
                 if is_lower_better:
                     pb = df_trend['score_primary'].min()
                 else:
                     pb = df_trend['score_primary'].max()
-                    
                 avg = df_trend['score_primary'].mean()
                 
-                # Format the numbers perfectly depending on the game
+            # 4. Aggregation Engine (Fixes multiple entries per day/week/month)
+            if timeline == "Daily (All Time)":
+                df_trend['Group'] = df_trend['created_at'].dt.strftime('%b %d, %Y')
+            elif timeline == "Weekly Averages":
+                df_trend['Group'] = df_trend['created_at'].dt.strftime('Week %V, %Y')
+            elif timeline == "Monthly Averages":
+                df_trend['Group'] = df_trend['created_at'].dt.strftime('%b %Y')
+            elif timeline == "6-Month Averages":
+                df_trend['half'] = df_trend['created_at'].dt.month.apply(lambda m: "H1" if m <= 6 else "H2")
+                df_trend['Group'] = df_trend['created_at'].dt.strftime('%Y') + " " + df_trend['half']
+            elif timeline == "Yearly Averages":
+                df_trend['Group'] = df_trend['created_at'].dt.strftime('%Y')
+                
+            # Perform the mathematical grouping
+            if selected_game == "Max SS/BS":
+                # For speed limits, we want the absolute MAX speed you achieved in that timeframe
+                df_agg = df_trend.groupby('Group', sort=False)[['score_primary', 'score_secondary']].max().reset_index()
+                chart_data = df_agg.set_index('Group')
+                chart_data.columns = ['Swing Speed', 'Ball Speed']
+            else:
+                # For all other games, we take the AVERAGE of your sessions in that timeframe
+                df_agg = df_trend.groupby('Group', sort=False)['score_primary'].mean().reset_index()
+                chart_data = df_agg.set_index('Group')
+                chart_data.columns = ['Score']
+
+            st.divider()
+            col1, col2 = st.columns(2)
+            
+            # 5. Render the Metrics and Dynamic Chart
+            if selected_game == "Max SS/BS":
+                col1.metric("🏆 All-Time Personal Best", f"{pb_ss:.0f} / {pb_bs:.0f}")
+                col2.metric("📊 All-Time Average", f"{avg_ss:.0f} / {avg_bs:.0f}")
+                
+                st.write(f"### Speed History ({timeline})")
+                st.line_chart(chart_data, color=["#FF4B4B", "#0068C9"]) 
+            else:
+                # Format numbers specifically to the game type
                 if selected_game in ["20 to 50"]:
                     pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
                 elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]:
@@ -860,10 +886,13 @@ else:
                 else:
                     pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
                     
-                col1.metric("🏆 Personal Best", pb_str)
+                col1.metric("🏆 All-Time Personal Best", pb_str)
                 col2.metric("📊 All-Time Average", avg_str)
                 
-                st.write("### Performance History")
-                chart_data = df_trend[['Date', 'score_primary']].set_index('Date')
-                chart_data.columns = ['Score']
-                st.line_chart(chart_data)
+                st.write(f"### Performance History ({timeline})")
+                
+                # Dynamic Visuals: Line for day-to-day, Bar for structured averages!
+                if timeline == "Daily (All Time)":
+                    st.line_chart(chart_data)
+                else:
+                    st.bar_chart(chart_data)
