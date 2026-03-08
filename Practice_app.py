@@ -355,56 +355,79 @@ else:
                     
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
         
-        # Display the table visually in the app
-        st.dataframe(df_report, hide_index=True, use_container_width=True)
+        # UI Polish: Create a Multi-Index so Streamlit merges the Category cells cleanly on the screen!
+        df_display = df_report.set_index(["Category", "Drill"])
+        st.dataframe(df_display, use_container_width=True)
 
-        # PDF Compilation Function
+        # ---------------------------------------------------------
+        # PDF Compilation Function (Tour-Level Aesthetics)
+        # ---------------------------------------------------------
         def generate_pdf_report(df, week, year, username):
             class PDF(FPDF):
                 def header(self):
-                    self.set_font("Helvetica", "B", 18)
-                    self.cell(0, 10, "GOLF PRACTICE PRO", ln=True, align="C")
-                    self.set_font("Helvetica", "", 11)
-                    self.cell(0, 8, f"Weekly Caddie Report | Player: {username}", ln=True, align="C")
-                    self.cell(0, 8, f"Week {week}, {year}", ln=True, align="C")
-                    self.ln(5)
+                    self.set_font("Helvetica", "B", 22)
+                    self.set_text_color(41, 55, 70) # Dark Slate 
+                    self.cell(0, 12, "GOLF PRACTICE PRO", ln=True, align="C")
+                    
+                    self.set_font("Helvetica", "I", 11)
+                    self.set_text_color(100, 100, 100) # Subtle Gray
+                    self.cell(0, 6, f"Weekly Caddie Report | Player: {username} | Week {week}, {year}", ln=True, align="C")
+                    self.ln(8)
                     
                 def footer(self):
                     self.set_y(-15)
-                    self.set_font("Helvetica", "I", 8)
+                    self.set_font("Helvetica", "I", 9)
+                    self.set_text_color(150, 150, 150)
                     self.cell(0, 10, "Practice like a tour pro.", align="C")
                     
             pdf = PDF(orientation="P", unit="mm", format="A4")
             pdf.add_page()
             
-            # Table Layout Config
-            pdf.set_font("Helvetica", "B", 9)
-            pdf.set_fill_color(240, 240, 240)
-            col_widths = [45, 40, 30, 30, 45]
-            headers = ["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change (vs Last Wk)"]
+            # Table Layout Config (190mm total width perfectly fits an A4 page)
+            col_widths = [70, 40, 40, 40]
+            headers = ["Drill", "Weekly Avg", "Weekly Best", "% Change (vs Last)"]
             
-            for i in range(len(headers)):
-                pdf.cell(col_widths[i], 10, headers[i], border=1, align="C", fill=True)
-            pdf.ln()
+            current_category = ""
             
-            # Draw Table Rows
             for _, row in df.iterrows():
-                pdf.set_font("Helvetica", "B", 8)
-                pdf.cell(col_widths[0], 10, str(row["Category"]), border=1)
-                
-                pdf.set_font("Helvetica", "", 8)
-                pdf.cell(col_widths[1], 10, str(row["Drill"]), border=1)
-                pdf.cell(col_widths[2], 10, str(row["Weekly Avg"]), border=1, align="C")
-                pdf.cell(col_widths[3], 10, str(row["Weekly Best"]), border=1, align="C")
-                
-                pct = str(row["% Change"])
-                if "+" in pct: pdf.set_text_color(0, 150, 0) # Green for improvement
-                elif "-" in pct and pct != "-": pdf.set_text_color(200, 0, 0) # Red for regression
+                # If we hit a new category, print a beautiful Full-Width Section Header
+                if row["Category"] != current_category:
+                    current_category = row["Category"]
+                    pdf.ln(4) # Spacing before new category
                     
-                pdf.cell(col_widths[4], 10, pct, border=1, align="C")
-                pdf.set_text_color(0, 0, 0) 
+                    # Dark blue header for the Category Name
+                    pdf.set_font("Helvetica", "B", 11)
+                    pdf.set_fill_color(41, 55, 70)
+                    pdf.set_text_color(255, 255, 255) # White Text
+                    pdf.cell(190, 9, f"  {current_category.upper()}", border=1, ln=True, fill=True)
+                    
+                    # Light gray column sub-headers directly underneath
+                    pdf.set_font("Helvetica", "B", 9)
+                    pdf.set_fill_color(240, 240, 240)
+                    pdf.set_text_color(0, 0, 0) # Black Text
+                    for i in range(len(headers)):
+                        pdf.cell(col_widths[i], 7, headers[i], border=1, align="C", fill=True)
+                    pdf.ln()
+                
+                # Draw the Data Rows
+                pdf.set_font("Helvetica", "", 9)
+                pdf.set_text_color(0, 0, 0)
+                pdf.cell(col_widths[0], 8, f"  {str(row['Drill'])}", border=1)
+                pdf.cell(col_widths[1], 8, str(row['Weekly Avg']), border=1, align="C")
+                pdf.cell(col_widths[2], 8, str(row['Weekly Best']), border=1, align="C")
+                
+                # Dynamic Color Coding for Momentum
+                pct = str(row["% Change"])
+                if "+" in pct: 
+                    pdf.set_text_color(34, 139, 34) # Forest Green
+                elif "-" in pct and pct != "-": 
+                    pdf.set_text_color(220, 53, 69) # Crimson Red
+                    
+                pdf.cell(col_widths[3], 8, pct, border=1, align="C")
+                pdf.set_text_color(0, 0, 0) # Reset to black for the next line
                 pdf.ln()
                 
+            # Create the file securely
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 pdf.output(tmp.name)
                 with open(tmp.name, "rb") as f:
