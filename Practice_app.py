@@ -207,7 +207,7 @@ else:
     # ==========================================
     # PAGE: WEEKLY DASHBOARD
     # ==========================================
-    if st.session_state.page == "Weekly Dashboard":
+    elif st.session_state.page == "Weekly Dashboard":
         st.title(f"📊 Week {current_week} Dashboard")
         st.write("Track your practice completion and weekly highlights.")
         
@@ -218,19 +218,23 @@ else:
             (df_logs['created_at'].dt.isocalendar().year == current_year)
         ].copy()
         
-        # 2. Define the core Combine Categories
-        core_categories = [
-            "Driving", 
-            "Scoring Zone Long", 
-            "Scoring Zone Mid", 
-            "Scoring Zone Short", 
-            "Short Game", 
-            "Putting"
-        ]
+        # 2. Define the exact Combine Categories and their Games (Maintains strict order)
+        combine_structure = {
+            "Driving": ["10 Shot", "Max SS/BS"],
+            "Scoring Zone Long": ["On-Course 150-200", "TM 150-200"],
+            "Scoring Zone Mid": ["On-Course 100-150", "TM 100-150"],
+            "Scoring Zone Short": ["On-Course 50-100", "TM 50-100"],
+            "Short Game": ["Par 21 WB", "20 to 50", "6ft Game"],
+            "Putting": ["Pace", "6-9-12", "2-8 Drill"]
+        }
+        
+        core_categories = list(combine_structure.keys())
         
         # Check completion
-        completed_cats = df_week['game_category'].dropna().unique().tolist()
-        completion_count = len([c for c in core_categories if c in completed_cats])
+        completed_games_this_week = df_week['game_name'].dropna().unique().tolist()
+        completed_cats_this_week = df_week['game_category'].dropna().unique().tolist()
+        
+        completion_count = len([c for c in core_categories if c in completed_cats_this_week])
         progress_pct = completion_count / len(core_categories)
         
         # 3. Render Progress Section
@@ -239,14 +243,24 @@ else:
         
         st.write("<br>", unsafe_allow_html=True) # Spacer
         
-        # Render visual checklist
-        cols = st.columns(3)
-        for i, cat in enumerate(core_categories):
-            with cols[i % 3]:
-                if cat in completed_cats:
-                    st.success(f"**✅ {cat}**")
-                else:
-                    st.info(f"**⏳ {cat}**")
+        # Render visual accordion checklist with navigation buttons
+        for cat, games in combine_structure.items():
+            is_cat_complete = cat in completed_cats_this_week
+            cat_icon = "✅" if is_cat_complete else "⏳"
+            
+            with st.expander(f"{cat_icon} **{cat}**"):
+                for game in games:
+                    is_game_complete = game in completed_games_this_week
+                    game_icon = "✅" if is_game_complete else "⭕"
+                    
+                    # Layout: Game name on the left, Button on the right
+                    col1, col2 = st.columns([4, 1])
+                    col1.write(f"{game_icon}  {game}")
+                    
+                    if col2.button("Practice ➡️", key=f"nav_{cat}_{game}", use_container_width=True):
+                        # Route the user directly to the category page
+                        st.session_state.page = cat
+                        st.rerun()
             
         st.divider()
         
@@ -254,7 +268,7 @@ else:
         st.subheader("📝 This Week's Logged Sessions")
         
         if df_week.empty:
-            st.info("No practice logged yet this week. Head to the sidebar to start your combine!")
+            st.info("No practice logged yet this week. Use the checklist above to start your combine!")
         else:
             # Sort newest first
             df_week = df_week.sort_values('created_at', ascending=False)
