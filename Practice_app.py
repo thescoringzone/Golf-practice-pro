@@ -807,7 +807,7 @@ else:
         st.title("📈 Your Practice Trends")
         st.write("Track your long-term progress, historical averages, and Running Baselines.")
         
-        # Double CSS Lock for older mobile browsers
+        # Double CSS Lock: Ensures no zooming/scrolling glitches with your finger
         st.markdown("""
             <style>
             [data-testid="stVegaLiteChart"], canvas { 
@@ -880,22 +880,26 @@ else:
                     c1.metric("🏆 All-Time Personal Best", f"{pb_ss:.0f} / {pb_bs:.0f}")
                     c2.metric("📊 All-Time Average", f"{avg_ss:.0f} / {avg_bs:.0f}")
                     
-                    # Smart Y-Axis for Swing Speed
-                    min_ss, max_ss = df_chart['score_primary'].min(), df_chart['score_primary'].max()
-                    ss_chart = alt.Chart(df_chart).mark_bar(color="#FF4B4B").encode(
+                    # Smart Zooming Line Chart for Swing Speed
+                    ss_chart = alt.Chart(df_chart).mark_line(
+                        point=alt.OverlayMarkDef(color="#FF4B4B", size=100, filled=True), 
+                        color="#FF4B4B", strokeWidth=3
+                    ).encode(
                         x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
-                        y=alt.Y('score_primary:Q', scale=alt.Scale(domain=[max(0, min_ss - 5), max_ss + 5]), title="Swing Speed (mph)"),
+                        y=alt.Y('score_primary:Q', scale=alt.Scale(zero=False), title="Swing Speed (mph)"),
                         tooltip=[]
                     ).properties(height=250)
                     
                     st.write(f"### Swing Speed History ({timeline})")
                     st.altair_chart(ss_chart, use_container_width=True) 
 
-                    # Smart Y-Axis for Ball Speed
-                    min_bs, max_bs = df_chart['score_secondary'].min(), df_chart['score_secondary'].max()
-                    bs_chart = alt.Chart(df_chart).mark_bar(color="#0068C9").encode(
+                    # Smart Zooming Line Chart for Ball Speed
+                    bs_chart = alt.Chart(df_chart).mark_line(
+                        point=alt.OverlayMarkDef(color="#0068C9", size=100, filled=True), 
+                        color="#0068C9", strokeWidth=3
+                    ).encode(
                         x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
-                        y=alt.Y('score_secondary:Q', scale=alt.Scale(domain=[max(0, min_bs - 5), max_bs + 5]), title="Ball Speed (mph)"),
+                        y=alt.Y('score_secondary:Q', scale=alt.Scale(zero=False), title="Ball Speed (mph)"),
                         tooltip=[]
                     ).properties(height=250)
                     
@@ -907,24 +911,22 @@ else:
                     
                     if selected_game in ["20 to 50"]:
                         pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
-                        y_domain = [0, 100]
                     elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]:
                         pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
-                        min_v, max_v = df_chart['score_primary'].min(), df_chart['score_primary'].max()
-                        y_domain = [max(0, min_v - 2), max_v + 2]
                     else:
                         pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
-                        min_v, max_v = df_chart['score_primary'].min(), df_chart['score_primary'].max()
-                        y_domain = [min_v - 2, max_v + 2]
                         
                     c1, c2 = st.columns(2)
                     c1.metric("🏆 All-Time Personal Best", pb_str)
                     c2.metric("📊 All-Time Average", avg_str)
                     
-                    # Smart Y-Axis Generic Chart
-                    chart = alt.Chart(df_chart).mark_bar(color="#0068C9").encode(
+                    # Smart Zooming Line Chart for General Drills
+                    chart = alt.Chart(df_chart).mark_line(
+                        point=alt.OverlayMarkDef(color="#0068C9", size=100, filled=True), 
+                        color="#0068C9", strokeWidth=3
+                    ).encode(
                         x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
-                        y=alt.Y('score_primary:Q', scale=alt.Scale(domain=y_domain), title="Score"),
+                        y=alt.Y('score_primary:Q', scale=alt.Scale(zero=False), title="Score"),
                         tooltip=[]
                     ).properties(height=300)
                     
@@ -991,11 +993,10 @@ else:
                         delta_color="normal"
                     )
                     
-                    # Smart Y-Axis with Dynamic Colors for Momentum
-                    min_m, max_m = chart_df['Momentum Delta (%)'].min(), chart_df['Momentum Delta (%)'].max()
+                    # Momentum uses Bar Charts because they safely originate from 0
                     mom_chart = alt.Chart(chart_df).mark_bar().encode(
                         x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45)),
-                        y=alt.Y('Momentum Delta (%):Q', scale=alt.Scale(domain=[min_m - 5, max_m + 5])),
+                        y=alt.Y('Momentum Delta (%):Q', title="Momentum (%)"), 
                         color=alt.condition(
                             alt.datum['Momentum Delta (%)'] > 0,
                             alt.value("#0068C9"),  # Blue for improvement
