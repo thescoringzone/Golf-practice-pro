@@ -799,6 +799,72 @@ else:
                     st.session_state.mode_putt_28 = "grid"
                     st.rerun()
                     
-    elif st.session_state.page == "Stock Market Analytics":
-        st.title("📈 Stock Market Analytics")
-        st.write("Long-term trend analysis and Personal Bests.")
+    # ==========================================
+    # PAGE: YOUR PRACTICE TRENDS
+    # ==========================================
+    elif st.session_state.page == "Your practice trends":
+        st.title("📈 Your Practice Trends")
+        st.write("Track your long-term progress, historical averages, and Personal Bests.")
+        
+        if df_logs.empty:
+            st.info("No practice data logged yet. Head to the combine pages to log your first session!")
+        else:
+            # 1. Dropdown to select the drill
+            available_games = sorted(df_logs['game_name'].unique().tolist())
+            selected_game = st.selectbox("Select a Drill to Analyze", available_games)
+            
+            # 2. Filter and prepare data for the chart
+            df_trend = df_logs[df_logs['game_name'] == selected_game].copy()
+            df_trend['created_at'] = pd.to_datetime(df_trend['created_at'])
+            df_trend = df_trend.sort_values('created_at')
+            # Create a clean date for the x-axis
+            df_trend['Date'] = df_trend['created_at'].dt.strftime('%b %d')
+            
+            # 3. Determine if "Lower is Better" to accurately calculate Personal Best
+            lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", 
+                                     "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
+            is_lower_better = selected_game in lower_is_better_games
+            
+            st.divider()
+            
+            col1, col2 = st.columns(2)
+            
+            # 4. Special Case: Render a Dual-Line Chart for SS/BS
+            if selected_game == "Max SS/BS":
+                pb_ss = df_trend['score_primary'].max()
+                pb_bs = df_trend['score_secondary'].max()
+                avg_ss = df_trend['score_primary'].mean()
+                avg_bs = df_trend['score_secondary'].mean()
+                
+                col1.metric("🏆 Personal Best (Max SS/BS)", f"{pb_ss:.0f} / {pb_bs:.0f}")
+                col2.metric("📊 All-Time Average", f"{avg_ss:.0f} / {avg_bs:.0f}")
+                
+                st.write("### Speed History")
+                chart_data = df_trend[['Date', 'score_primary', 'score_secondary']].set_index('Date')
+                chart_data.columns = ['Swing Speed', 'Ball Speed']
+                st.line_chart(chart_data, color=["#FF4B4B", "#0068C9"]) # Red and Blue lines
+                
+            # 5. Standard Case: Render Single Line Chart for all other games
+            else:
+                if is_lower_better:
+                    pb = df_trend['score_primary'].min()
+                else:
+                    pb = df_trend['score_primary'].max()
+                    
+                avg = df_trend['score_primary'].mean()
+                
+                # Format the numbers perfectly depending on the game
+                if selected_game in ["20 to 50"]:
+                    pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
+                elif selected_game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]:
+                    pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
+                else:
+                    pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
+                    
+                col1.metric("🏆 Personal Best", pb_str)
+                col2.metric("📊 All-Time Average", avg_str)
+                
+                st.write("### Performance History")
+                chart_data = df_trend[['Date', 'score_primary']].set_index('Date')
+                chart_data.columns = ['Score']
+                st.line_chart(chart_data)
