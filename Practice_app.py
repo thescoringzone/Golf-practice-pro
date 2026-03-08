@@ -5,6 +5,8 @@ import pytz
 import json
 import altair as alt
 from supabase import create_client
+from fpdf import FPDF
+import tempfile
 
 # ==========================================
 # 1. APP CONFIG & PREMIUM CSS
