@@ -733,7 +733,6 @@ else:
                     st.rerun()
                 st.divider()
                 
-                # Removed the max limit so you can log massive streaks!
                 score = st.number_input("Best Streak (Max Consecutive Putts)", min_value=0, value=5, step=1)
                 
                 if st.button("💾 Save Pace Log", type="primary", use_container_width=True):
