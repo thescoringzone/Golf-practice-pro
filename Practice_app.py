@@ -209,10 +209,86 @@ else:
     # ==========================================
     if st.session_state.page == "Weekly Dashboard":
         st.title(f"📊 Week {current_week} Dashboard")
-        st.write("Your active practice session progress for this week.")
+        st.write("Track your practice completion and weekly highlights.")
         
-        # We will build out the visual grid of the week's practice here in Part 3.
-        st.info("Dashboard module loading... Data from your logged games will aggregate here.")
+        # 1. Filter data purely for the current week and year
+        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'])
+        df_week = df_logs[
+            (df_logs['created_at'].dt.isocalendar().week == current_week) & 
+            (df_logs['created_at'].dt.isocalendar().year == current_year)
+        ].copy()
+        
+        # 2. Define the core Combine Categories
+        core_categories = [
+            "Driving", 
+            "Scoring Zone Long", 
+            "Scoring Zone Mid", 
+            "Scoring Zone Short", 
+            "Short Game", 
+            "Putting"
+        ]
+        
+        # Check completion
+        completed_cats = df_week['game_category'].dropna().unique().tolist()
+        completion_count = len([c for c in core_categories if c in completed_cats])
+        progress_pct = completion_count / len(core_categories)
+        
+        # 3. Render Progress Section
+        st.subheader("🎯 Weekly Combine Checklist")
+        st.progress(progress_pct, text=f"Combine Completion: {completion_count} / {len(core_categories)} Categories")
+        
+        st.write("<br>", unsafe_allow_html=True) # Spacer
+        
+        # Render visual checklist
+        cols = st.columns(3)
+        for i, cat in enumerate(core_categories):
+            with cols[i % 3]:
+                if cat in completed_cats:
+                    st.success(f"**✅ {cat}**")
+                else:
+                    st.info(f"**⏳ {cat}**")
+            
+        st.divider()
+        
+        # 4. Weekly Highlights / Recent Activity
+        st.subheader("📝 This Week's Logged Sessions")
+        
+        if df_week.empty:
+            st.info("No practice logged yet this week. Head to the sidebar to start your combine!")
+        else:
+            # Sort newest first
+            df_week = df_week.sort_values('created_at', ascending=False)
+            
+            # Format a clean, human-readable dataframe for viewing
+            df_display = df_week[['created_at', 'game_category', 'game_name', 'score_primary', 'score_secondary']].copy()
+            df_display['created_at'] = df_display['created_at'].dt.strftime('%A, %b %d')
+            
+            # Clean up the display column names
+            df_display.rename(columns={
+                'created_at': 'Date',
+                'game_category': 'Category',
+                'game_name': 'Drill',
+                'score_primary': 'Score',
+                'score_secondary': 'Secondary Score'
+            }, inplace=True)
+            
+            # Fill NaN secondary scores with a dash so it looks premium
+            df_display['Secondary Score'] = df_display['Secondary Score'].fillna("-")
+            
+            st.dataframe(df_display, hide_index=True, use_container_width=True)
+            
+            # 5. Quick Insights
+            st.write("<br>", unsafe_allow_html=True)
+            st.subheader("⚡ Weekly Insights")
+            c1, c2 = st.columns(2)
+            c1.metric("Total Sessions Logged", len(df_week))
+            
+            # Find the most practiced category this week
+            top_cat = df_week['game_category'].mode()
+            if not top_cat.empty:
+                c2.metric("Most Practiced Category", top_cat.iloc[0])
+            else:
+                c2.metric("Most Practiced Category", "N/A")
 
     # ==========================================
     # PAGE: DRIVING
