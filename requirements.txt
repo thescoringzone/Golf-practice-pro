@@ -2,3 +2,5 @@ streamlit
 pandas
 pytz
 supabase
+altair
+fpdf2
