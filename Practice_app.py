@@ -202,12 +202,12 @@ else:
 
     # -- SUNDAY DEADLINE WARNING --
     if is_sunday:
-        st.warning("⚠️ **Reminder: Today is Sunday!** Your Weekly Dashboard resets tonight at midnight. Finish your weekly combine!")
+        st.warning("⚠️ **Reminder: Today is Sunday!** Your Weekly Dashboard resets tonight at midnight.")
 
     # ==========================================
     # PAGE: WEEKLY DASHBOARD
     # ==========================================
-    elif st.session_state.page == "Weekly Dashboard":
+    if st.session_state.page == "Weekly Dashboard":
         st.title(f"📊 Week {current_week} Dashboard")
         st.write("Track your practice completion and weekly highlights.")
         
