@@ -99,12 +99,10 @@ def render_icon_grid(df_game, game_name):
                 # 2. Format Score based on the specific game
                 if game_name == "Max SS/BS":
                     score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
-                elif game_name == "20 to 50":
+                elif game_name in ["20 to 50", "6-9-12"]:
                     score_str = f"{row['score_primary']:.0f}%" # Whole number with percentage
-                elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100"]: 
+                elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill"]: 
                     score_str = f"{row['score_primary']:.0f}" # Clean whole numbers
-                else:
-                    score_str = f"{row['score_primary']:.1f}" # Decimals for averages
 
                 # 3. Render Date and Score dynamically based on light/dark mode
                 st.markdown(f"""
@@ -702,8 +700,114 @@ else:
                     st.session_state.mode_sg_6ft = "grid"
                     st.rerun()
                     
+    # ==========================================
+    # PAGE: PUTTING
+    # ==========================================
     elif st.session_state.page == "Putting":
         st.title("⛳ Putting Combine")
+        
+        if 'mode_putt_pace' not in st.session_state: st.session_state.mode_putt_pace = "grid"
+        if 'mode_putt_6912' not in st.session_state: st.session_state.mode_putt_6912 = "grid"
+        if 'mode_putt_28' not in st.session_state: st.session_state.mode_putt_28 = "grid"
+
+        tabs = st.tabs(["Pace (Lag)", "6-9-12", "2-8 Drill"])
+        
+        # --- TAB 1: PACE (LAG) ---
+        with tabs[0]:
+            st.write("*You have 3 lives. Hit random putts from 20-50ft. You lose a life if your putt finishes outside one putter length.*")
+            st.caption("**Rules:** Count your consecutive putts inside a putter length. A miss costs a life and resets your streak to 0. Record your highest streak from the 3 lives.")
+            
+            if st.session_state.mode_putt_pace == "grid":
+                if st.button("➕ New Entry", key="new_putt_pace", type="primary"):
+                    st.session_state.mode_putt_pace = "entry"
+                    st.rerun()
+                st.divider()
+                df_putt_pace = df_logs[df_logs['game_name'] == "Pace"]
+                render_icon_grid(df_putt_pace, "Pace")
+                
+            elif st.session_state.mode_putt_pace == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_putt_pace"):
+                    st.session_state.mode_putt_pace = "grid"
+                    st.rerun()
+                st.divider()
+                
+                # Removed the max limit so you can log massive streaks!
+                score = st.number_input("Best Streak (Max Consecutive Putts)", min_value=0, value=5, step=1)
+                
+                if st.button("💾 Save Pace Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "Pace", "score_primary": score, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_putt_pace = "grid"
+                    st.rerun()
+
+        # --- TAB 2: 6-9-12 ---
+        with tabs[1]:
+            st.write("*Hit 5 putts each from 6ft, 9ft, and 12ft.*")
+            st.caption("**Rules:** Record how many you make from each distance. The app will automatically calculate your total make percentage.")
+            
+            if st.session_state.mode_putt_6912 == "grid":
+                if st.button("➕ New Entry", key="new_putt_6912", type="primary"):
+                    st.session_state.mode_putt_6912 = "entry"
+                    st.rerun()
+                st.divider()
+                df_putt_6912 = df_logs[df_logs['game_name'] == "6-9-12"]
+                render_icon_grid(df_putt_6912, "6-9-12")
+                
+            elif st.session_state.mode_putt_6912 == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_putt_6912"):
+                    st.session_state.mode_putt_6912 = "grid"
+                    st.rerun()
+                st.divider()
+                
+                c1, c2, c3 = st.columns(3)
+                made_6 = c1.number_input("6ft (of 5)", min_value=0, max_value=5, value=0, step=1)
+                made_9 = c2.number_input("9ft (of 5)", min_value=0, max_value=5, value=0, step=1)
+                made_12 = c3.number_input("12ft (of 5)", min_value=0, max_value=5, value=0, step=1)
+                
+                total_made = made_6 + made_9 + made_12
+                final_pct = (total_made / 15.0) * 100
+                
+                st.divider()
+                st.metric("🎯 Total Make Percentage", f"{final_pct:.0f}%")
+                
+                if st.button("💾 Save 6-9-12 Log", type="primary", use_container_width=True):
+                    # We save raw_data so the "View" button works!
+                    raw_data = [{"Distance": "6ft", "Made": made_6}, {"Distance": "9ft", "Made": made_9}, {"Distance": "12ft", "Made": made_12}]
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "6-9-12", "score_primary": final_pct, "raw_data": raw_data, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_putt_6912 = "grid"
+                    st.rerun()
+
+        # --- TAB 3: 2-8 DRILL ---
+        with tabs[2]:
+            st.write("*Ladder drill: Make a putt from 2ft, 3ft, 4ft, 5ft, 6ft, 7ft, and 8ft consecutively.*")
+            st.caption("**Rules:** If you miss, you must start over at 2ft. Record the total number of putts it took to complete the ladder.")
+            
+            if st.session_state.mode_putt_28 == "grid":
+                if st.button("➕ New Entry", key="new_putt_28", type="primary"):
+                    st.session_state.mode_putt_28 = "entry"
+                    st.rerun()
+                st.divider()
+                df_putt_28 = df_logs[df_logs['game_name'] == "2-8 Drill"]
+                render_icon_grid(df_putt_28, "2-8 Drill")
+                
+            elif st.session_state.mode_putt_28 == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_putt_28"):
+                    st.session_state.mode_putt_28 = "grid"
+                    st.rerun()
+                st.divider()
+                
+                attempts = st.number_input("Total Putts Hit to Complete Ladder", min_value=7, value=15, step=1)
+                
+                if st.button("💾 Save 2-8 Drill Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "2-8 Drill", "score_primary": attempts, "week_number": current_week}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_putt_28 = "grid"
+                    st.rerun()
+                    
     elif st.session_state.page == "Stock Market Analytics":
         st.title("📈 Stock Market Analytics")
         st.write("Long-term trend analysis and Personal Bests.")
