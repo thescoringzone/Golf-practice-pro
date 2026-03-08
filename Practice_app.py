@@ -190,7 +190,7 @@ else:
         "Scoring Zone Short", 
         "Short Game", 
         "Putting", 
-        "Your Practice Trends"
+        "Your practice trends"
     ]
     
     for opt in nav_options:
