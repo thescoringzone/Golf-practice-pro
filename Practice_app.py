@@ -798,7 +798,7 @@ else:
                     st.success("Saved!")
                     st.session_state.mode_putt_28 = "grid"
                     st.rerun()
-                    
+
     # ==========================================
     # PAGE: YOUR PRACTICE TRENDS
     # ==========================================
