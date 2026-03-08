@@ -99,10 +99,12 @@ def render_icon_grid(df_game, game_name):
                 # 2. Format Score based on the specific game
                 if game_name == "Max SS/BS":
                     score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
-                elif game_name in ["20 to 50", "6-9-12"]:
+                elif game_name in ["20 to 50"]:
                     score_str = f"{row['score_primary']:.0f}%" # Whole number with percentage
-                elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill"]: 
+                elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: 
                     score_str = f"{row['score_primary']:.0f}" # Clean whole numbers
+                else:
+                    score_str = f"{row['score_primary']:.1f}" # Decimals for averages
 
                 # 3. Render Date and Score dynamically based on light/dark mode
                 st.markdown(f"""
@@ -743,8 +745,8 @@ else:
 
         # --- TAB 2: 6-9-12 ---
         with tabs[1]:
-            st.write("*Hit 5 putts each from 6ft, 9ft, and 12ft.*")
-            st.caption("**Rules:** Record how many you make from each distance. The app will automatically calculate your total make percentage.")
+            st.write("*Hit randomised putts in order: 6ft, 9ft, 12ft, 6ft, 9ft, 12ft... until you hole at least 50ft of putts.*")
+            st.caption("**Rules:** Keep track of the total distance holed. Record the total number of putts it took to reach or exceed 50ft.")
             
             if st.session_state.mode_putt_6912 == "grid":
                 if st.button("➕ New Entry", key="new_putt_6912", type="primary"):
@@ -760,21 +762,10 @@ else:
                     st.rerun()
                 st.divider()
                 
-                c1, c2, c3 = st.columns(3)
-                made_6 = c1.number_input("6ft (of 5)", min_value=0, max_value=5, value=0, step=1)
-                made_9 = c2.number_input("9ft (of 5)", min_value=0, max_value=5, value=0, step=1)
-                made_12 = c3.number_input("12ft (of 5)", min_value=0, max_value=5, value=0, step=1)
-                
-                total_made = made_6 + made_9 + made_12
-                final_pct = (total_made / 15.0) * 100
-                
-                st.divider()
-                st.metric("🎯 Total Make Percentage", f"{final_pct:.0f}%")
+                total_putts = st.number_input("Total Putts Taken to Reach 50ft", min_value=5, value=15, step=1)
                 
                 if st.button("💾 Save 6-9-12 Log", type="primary", use_container_width=True):
-                    # We save raw_data so the "View" button works!
-                    raw_data = [{"Distance": "6ft", "Made": made_6}, {"Distance": "9ft", "Made": made_9}, {"Distance": "12ft", "Made": made_12}]
-                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "6-9-12", "score_primary": final_pct, "raw_data": raw_data, "week_number": current_week}
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "6-9-12", "score_primary": total_putts, "week_number": current_week}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     st.session_state.mode_putt_6912 = "grid"
@@ -783,7 +774,7 @@ else:
         # --- TAB 3: 2-8 DRILL ---
         with tabs[2]:
             st.write("*Ladder drill: Make a putt from 2ft, 3ft, 4ft, 5ft, 6ft, 7ft, and 8ft consecutively.*")
-            st.caption("**Rules:** If you miss, you must start over at 2ft. Record the total number of putts it took to complete the ladder.")
+            st.caption("**Rules:** If you miss, you must start over at 2ft. Record the total number of putts it took to complete the ladder. *Note: You can randomise the order of distances to increase difficulty.*")
             
             if st.session_state.mode_putt_28 == "grid":
                 if st.button("➕ New Entry", key="new_putt_28", type="primary"):
