@@ -280,12 +280,16 @@ def render_on_course_performance(category):
         tot = sum(r.get('short_game', {}).get('total_shots', 0) for r in raw_list)
         ud = sum(r.get('short_game', {}).get('up_and_downs', 0) for r in raw_list)
         in6 = sum(r.get('short_game', {}).get('inside_6ft', 0) for r in raw_list)
+        in3 = sum(r.get('short_game', {}).get('inside_3ft', 0) for r in raw_list)
+        
         scr_pct = (ud / tot * 100) if tot > 0 else 0
         in6_pct = (in6 / tot * 100) if tot > 0 else 0
+        in3_pct = (in3 / tot * 100) if tot > 0 else 0
+        
         c1, c2, c3 = st.columns(3)
         c1.metric("Scrambling (Up & Down)", f"{scr_pct:.0f}%")
         c2.metric("Shots Inside 6ft", f"{in6_pct:.0f}%")
-        c3.metric("Total SG Shots", tot)
+        c3.metric("Shots Inside 3ft", f"{in3_pct:.0f}%")
 
     elif category == "Putting":
         tp = sum(r.get('putting', {}).get('total_putts', 0) for r in raw_list)
