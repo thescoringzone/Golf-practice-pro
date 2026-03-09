@@ -99,6 +99,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
 # ==========================================
 # 2. DATABASE CONNECTION
 # ==========================================
@@ -202,7 +203,6 @@ def render_icon_grid(df_game, game_name):
 # 5. ROUTING: LOGIN GATE
 # ==========================================
 if st.session_state.page == "Login" or not st.session_state.current_user:
-    # Beautifully proportioned Landing Page Branding
     st.markdown("<h1 style='text-align: center; font-size: 3.8em; font-weight: 800; margin-top: 5%; letter-spacing: -1px;'>The Practice Club</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #6b7280; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; font-size: 1.1em;'>Tour Pro Edition</h3>", unsafe_allow_html=True)
     st.write("<br><br>", unsafe_allow_html=True)
@@ -210,139 +210,7 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.container(border=True):
-            username_input = st.text_input("Player Username", placeholder="Enter username...").strip()
-            common_tzs = ["US/Eastern", "US/Central", "US/Mountain", "US/Pacific", "Europe/London", "Asia/Hong_Kong", "Australia/Sydney", "UTC"]
-            selected_tz = st.selectbox("Your Local Timezone (For Weekly Reset)", common_tzs, index=0)
-            
-            st.write("<br>", unsafe_allow_html=True)
-            if st.button("Authenticate & Enter", use_container_width=True, type="primary"):
-                if username_input:
-                    st.session_state.current_user = username_input
-                    st.session_state.timezone = selected_tz
-                    st.session_state.page = "Weekly Dashboard"
-                    st.rerun()
-
-# ==========================================
-# 2. DATABASE CONNECTION
-# ==========================================
-@st.cache_resource
-def init_connection():
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
-
-try:
-    supabase = init_connection()
-except Exception as e:
-    st.error("Database connection failed. Please check your Streamlit secrets.")
-
-
-# ==========================================
-# 3. GLOBAL STATE & TIME ENGINE
-# ==========================================
-if 'current_user' not in st.session_state: st.session_state.current_user = None
-if 'timezone' not in st.session_state: st.session_state.timezone = "UTC"
-if 'page' not in st.session_state: st.session_state.page = "Login"
-
-# Deep Link Sub-Navigation Memory
-if 'driving_radio' not in st.session_state: st.session_state.driving_radio = "10 Shot"
-if 'szl_radio' not in st.session_state: st.session_state.szl_radio = "On-Course 150-200"
-if 'szm_radio' not in st.session_state: st.session_state.szm_radio = "On-Course 100-150"
-if 'szs_radio' not in st.session_state: st.session_state.szs_radio = "On-Course 50-100"
-if 'sg_radio' not in st.session_state: st.session_state.sg_radio = "Par 21 WB"
-if 'putt_radio' not in st.session_state: st.session_state.putt_radio = "Pace"
-
-def get_local_time_info():
-    tz = pytz.timezone(st.session_state.timezone)
-    local_time = datetime.datetime.now(tz)
-    year, week_num, weekday = local_time.isocalendar()
-    is_sunday = (weekday == 7)
-    return local_time, year, week_num, is_sunday
-
-
-# ==========================================
-# 4. DATA LOADER & ICON GRID HELPER
-# ==========================================
-def load_all_logs(username):
-    response = supabase.table("practice_logs").select("*").eq("user_name", username).execute()
-    if response.data:
-        return pd.DataFrame(response.data)
-    else:
-        return pd.DataFrame(columns=[
-            "id", "created_at", "user_name", "game_category", "game_name", 
-            "score_primary", "score_secondary", "raw_data", "week_number"
-        ])
-
-def render_icon_grid(df_game, game_name):
-    if df_game.empty:
-        st.info("No practice sessions logged yet. Click 'New Entry' to start.")
-        return
-
-    cols = st.columns(4)
-    df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
-    
-    for i, (_, row) in enumerate(df_game.iterrows()):
-        with cols[i % 4]:
-            with st.container(border=True):
-                # 1. Format Date
-                try:
-                    dt = datetime.datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
-                    date_str = dt.strftime("%b %d, %Y")
-                except:
-                    date_str = str(row['created_at'])[:10]
-                
-                # 2. Format Score based on the specific game
-                if game_name == "Max SS/BS":
-                    score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
-                elif game_name in ["20 to 50"]:
-                    score_str = f"{row['score_primary']:.0f}%" 
-                elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: 
-                    score_str = f"{row['score_primary']:.0f}" 
-                else:
-                    score_str = f"{row['score_primary']:.1f}" 
-
-                # 3. Render the specific grid block
-                st.markdown(f"""
-                <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
-                    <span style='color: gray; font-size: 0.9em; font-family: "Montserrat", sans-serif;'>🗂️ {date_str}</span><br>
-                    <b style='font-size: 1.8em; font-family: "Playfair Display", serif; color: var(--text-color);'>{score_str}</b>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                c1, c2 = st.columns(2)
-                
-                # Popover: View Matrix Data
-                with c1.popover("👁️ View", use_container_width=True):
-                    st.markdown("**Session Data:**")
-                    if isinstance(row['raw_data'], list) and len(row['raw_data']) > 0:
-                        df_view = pd.DataFrame(row['raw_data'])
-                        st.dataframe(df_view, hide_index=True, use_container_width=True)
-                    else:
-                        st.write(f"**Score:** {score_str}")
-                        st.caption("Manual entry game (no matrix data).")
-                
-                # Popover: Delete Record
-                with c2.popover("🗑️ Del", use_container_width=True):
-                    st.markdown("**Delete this record?**")
-                    st.caption("This cannot be undone.")
-                    if st.button("Yes", key=f"confirm_del_{row['id']}", type="primary", use_container_width=True):
-                        supabase.table("practice_logs").delete().eq("id", row['id']).execute()
-                        st.success("Record deleted!")
-                        st.rerun()
-
-
-# ==========================================
-# 5. ROUTING: LOGIN GATE
-# ==========================================
-if st.session_state.page == "Login" or not st.session_state.current_user:
-    st.markdown("<h1 style='text-align: center; font-size: 4.5em; margin-top: 5%;'>Golf Practice Pro</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #6b7280; font-weight: 400; letter-spacing: 1px; font-family: \"Montserrat\", sans-serif;'>Practice like a tour pro</h3>", unsafe_allow_html=True)
-    st.write("<br><br>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        with st.container(border=True):
-            username_input = st.text_input("Player Username", placeholder="Enter username...").strip()
+            username_input = st.text_input("Player Username", placeholder="Enter username...", key="login_username").strip()
             common_tzs = ["US/Eastern", "US/Central", "US/Mountain", "US/Pacific", "Europe/London", "Asia/Hong_Kong", "Australia/Sydney", "UTC"]
             selected_tz = st.selectbox("Your Local Timezone (For Weekly Reset)", common_tzs, index=0)
             
