@@ -531,7 +531,7 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
             selected_tz = st.selectbox("Your Local Timezone (For Weekly Reset)", common_tzs, index=0)
             
             st.write("<br>", unsafe_allow_html=True)
-            if st.button("Authenticate & Enter", use_container_width=True, type="primary"):
+            if st.button("Authenticate & Enter", use_container_width=True, type="primary", key="auth_btn"):
                 if username_input:
                     st.session_state.current_user = username_input
                     st.session_state.timezone = selected_tz
@@ -551,7 +551,7 @@ else:
     st.sidebar.caption(f"Timezone: {st.session_state.timezone}")
     st.sidebar.caption(f"🗓️ **Week {current_week} of {current_year}**")
     
-    if st.sidebar.button("Log Out"):
+    if st.sidebar.button("Log Out", key="side_logout"):
         st.session_state.current_user = None
         st.session_state.page = "Login"
         st.rerun()
@@ -559,20 +559,10 @@ else:
     st.sidebar.divider()
     st.sidebar.header("🧭 Navigation")
     
-    nav_options = [
-        "Weekly Dashboard", 
-        "Practice Rounds", 
-        "Driving", 
-        "Scoring Zone Long", 
-        "Scoring Zone Mid", 
-        "Scoring Zone Short", 
-        "Short Game", 
-        "Putting", 
-        "Your Practice Trends"
-    ]
+    nav_options = ["Weekly Dashboard", "Practice Rounds", "Driving", "Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short", "Short Game", "Putting", "Your Practice Trends"]
     
     for opt in nav_options:
-        if st.sidebar.button(opt, use_container_width=True, type="primary" if st.session_state.page == opt else "secondary"):
+        if st.sidebar.button(opt, key=f"nav_{opt}", use_container_width=True, type="primary" if st.session_state.page == opt else "secondary"):
             st.session_state.page = opt
             st.rerun()
 
@@ -583,126 +573,253 @@ else:
     # ==========================================
     # PAGE: WEEKLY DASHBOARD
     # ==========================================
-    elif st.session_state.page == "Weekly Dashboard":
+    if st.session_state.page == "Weekly Dashboard":
         st.title("📊 Weekly Dashboard")
-        st.write("Track your practice completion and download your weekly reports.")
         
-        # 1. Date Filtering (Simplified & Bulletproof)
-        # We are bypassing complex pandas timezone math and strictly using the 'week_number' column
-        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce')
-        df_logs['Year'] = df_logs['created_at'].dt.year
+        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce', utc=True)
+        df_logs['Year'] = df_logs['created_at'].dt.isocalendar().year
         
-        logged_weeks = sorted(df_logs['week_number'].dropna().unique().tolist(), reverse=True)
-        if current_week not in logged_weeks:
-            logged_weeks.insert(0, current_week)
+        logged_weeks = sorted(df_logs[df_logs['Year'] == current_year]['week_number'].dropna().unique().tolist(), reverse=True)
+        if current_week not in logged_weeks: logged_weeks.insert(0, current_week)
             
-        col_w1, col_w2 = st.columns([1, 3])
-        selected_week = col_w1.selectbox("📅 Select Week to View", logged_weeks, index=logged_weeks.index(current_week))
+        col_w1, _ = st.columns([1, 3])
+        selected_week = col_w1.selectbox("📅 Select Week", logged_weeks, index=logged_weeks.index(current_week) if current_week in logged_weeks else 0, key="dash_wk_sel")
         
-        # Filter strictly by the explicit week_number we saved to Supabase
         df_cw = df_logs[(df_logs['week_number'] == selected_week) & (df_logs['Year'] == current_year)].copy()
-        
-        lw_week = selected_week - 1 if selected_week > 1 else 52
-        lw_year = current_year if selected_week > 1 else current_year - 1
-        df_lw = df_logs[(df_logs['week_number'] == lw_week) & (df_logs['Year'] == lw_year)].copy()
         
         combine_structure = {
             "Practice Rounds": ["Straight up", "5m game", "10m game"],
             "Driving": ["10 Shot", "Max SS/BS"],
-            "Scoring Zone Long": ["On-Course 150-200", "TM 150-200"],
-            "Scoring Zone Mid": ["On-Course 100-150", "TM 100-150"],
-            "Scoring Zone Short": ["On-Course 50-100", "TM 50-100"],
+            "Scoring Zone Long": ["Situational Practice 150-200", "TM 150-200"],
+            "Scoring Zone Mid": ["Situational Practice 100-150", "TM 100-150"],
+            "Scoring Zone Short": ["Situational Practice 50-100", "TM 50-100"],
             "Short Game": ["Par 21 WB", "20 to 50", "6ft Game"],
             "Putting": ["Pace", "6-9-12", "2-8 Drill"]
         }
         
-        core_categories = list(combine_structure.keys())
-        completed_games_this_week = df_cw['game_name'].dropna().unique().tolist()
-        completed_cats_this_week = df_cw['game_category'].dropna().unique().tolist()
+        done_games = df_cw['game_name'].tolist()
+        done_cats = df_cw['game_category'].tolist()
         
-        completion_count = len([c for c in core_categories if c in completed_cats_this_week])
-        progress_pct = completion_count / len(core_categories)
-        
-        st.subheader(f"🎯 Week {selected_week} Combine Checklist")
-        st.progress(progress_pct, text=f"Combine Completion: {completion_count} / {len(core_categories)} Categories")
-        st.write("<br>", unsafe_allow_html=True)
-        
+        st.subheader(f"🎯 Week {selected_week} Checklist")
         for cat, games in combine_structure.items():
-            is_cat_complete = cat in completed_cats_this_week
-            cat_icon = "✅" if is_cat_complete else "⏳"
-            
+            cat_icon = "✅" if cat in done_cats else "⏳"
             with st.expander(f"{cat_icon} **{cat}**"):
-                for game in games:
-                    is_game_complete = game in completed_games_this_week
-                    game_icon = "✅" if is_game_complete else "⭕"
-                    
-                    display_game = game.replace("On-Course", "Situational Practice") if cat in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else game
-                    
-                    col1, col2 = st.columns([4, 1])
-                    col1.write(f"{game_icon}  {display_game}")
-                    
-                    if col2.button("Practice ➡️", key=f"nav_{cat}_{game}_{selected_week}", use_container_width=True):
+                for g in games:
+                    g_icon = "✅" if g in done_games else "⭕"
+                    c1, c2 = st.columns([4, 1])
+                    c1.write(f"{g_icon}  {g}")
+                    if c2.button("Go", key=f"dash_nav_{cat}_{g}"):
                         st.session_state.page = cat
-                        if cat == "Practice Rounds": st.session_state.pr_game_select = game
-                        elif cat == "Driving": st.session_state.driving_radio = game
-                        elif cat == "Scoring Zone Long": st.session_state.szl_radio = game
-                        elif cat == "Scoring Zone Mid": st.session_state.szm_radio = game
-                        elif cat == "Scoring Zone Short": st.session_state.szs_radio = game
-                        elif cat == "Short Game": st.session_state.sg_radio = game
-                        elif cat == "Putting": st.session_state.putt_radio = game
+                        if cat == "Practice Rounds": st.session_state.pr_game_select = g
                         st.rerun()
             
         st.divider()
-        
-        st.subheader(f"📝 Week {selected_week} Logged Sessions")
+        st.subheader("📝 Logged Sessions")
         if df_cw.empty:
             st.info("No practice logged for this week.")
         else:
-            df_cw_sort = df_cw.sort_values('created_at', ascending=False)
-            
-            def format_dashboard_score(row):
-                gn = row.get('game_name', '')
-                cat = row.get('game_category', '')
-                p = row.get('score_primary', 0)
-                if pd.isna(p): p = 0
-                
-                # Bulletproof Practice Rounds formatting
-                if cat == "Practice Rounds":
+            def format_score(row):
+                if row['game_category'] == "Practice Rounds":
                     raw = row.get('raw_data', {})
-                    if not isinstance(raw, dict):
-                        try:
-                            import json
-                            raw = json.loads(raw) if isinstance(raw, str) else {}
-                        except:
-                            raw = {}
                     gross = raw.get('gross_score', 0)
-                    to_par_str = f"+{int(p)}" if p > 0 else ("E" if p == 0 else f"{int(p)}")
-                    return f"{int(gross)} ({to_par_str})"
-
-                s = row.get('score_secondary', 0)
-                if pd.isna(s): s = 0
-                
-                if gn == "Max SS/BS": return f"{p:.0f} / {s:.0f}"
-                elif gn in ["20 to 50"]: return f"{p:.0f}%"
-                elif gn in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: return f"{p:.0f}"
-                else: return f"{p:.2f}"
-                
-            df_display = df_cw_sort.copy()
-            df_display['Score'] = df_display.apply(format_dashboard_score, axis=1)
-            df_display['Drill'] = df_display.apply(lambda x: x['game_name'].replace("On-Course", "Situational Practice") if x['game_category'] in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else x['game_name'], axis=1)
+                    p = row['score_primary']
+                    tp = f"+{int(p)}" if p > 0 else ("E" if p == 0 else f"{int(p)}")
+                    return f"{int(gross)} ({tp})"
+                return f"{row['score_primary']:.2f}"
             
-            df_clean = df_display[['Drill', 'Score']]
-            st.dataframe(df_clean, hide_index=True, use_container_width=True)
+            df_disp = df_cw.copy()
+            df_disp['Score'] = df_disp.apply(format_score, axis=1)
+            st.dataframe(df_disp[['game_name', 'Score']], hide_index=True, use_container_width=True)
+
+    # ==========================================
+    # PAGE: PRACTICE ROUNDS
+    # ==========================================
+    elif st.session_state.page == "Practice Rounds":
+        st.title("⛳ Practice Rounds")
+        if 'mode_pr' not in st.session_state: st.session_state.mode_pr = "grid"
+        if 'pr_game_select' not in st.session_state: st.session_state.pr_game_select = "Straight up"
+        if 'edit_pr_id' not in st.session_state: st.session_state.edit_pr_id = None
+        if 'edit_pr_data' not in st.session_state: st.session_state.edit_pr_data = {}
+
+        pr_game = st.selectbox("Select Game Type", ["Straight up", "5m game", "10m game"], key="pr_game_sel")
+        st.session_state.pr_game_select = pr_game
+
+        if st.session_state.mode_pr == "grid":
+            if st.button("➕ Log New Practice Round", type="primary", key="new_pr_master"):
+                st.session_state.edit_pr_id = None
+                st.session_state.edit_pr_data = {}
+                st.session_state.mode_pr = "entry"
+                st.rerun()
             
-        st.divider()
+            df_pr = df_logs[(df_logs['game_category'] == "Practice Rounds") & (df_logs['game_name'] == pr_game)]
+            
+            if not df_pr.empty:
+                st.write("### ✏️ Resume or Edit a Past Round")
+                sel_edit = st.selectbox("Select a round to finish:", ["-- Select --"] + df_pr.apply(lambda r: f"{str(r['created_at'])[:10]} (ID: {r['id']})", axis=1).tolist(), key="edit_sel_pr")
+                if sel_edit != "-- Select --":
+                    eid = int(sel_edit.split("(ID: ")[1].replace(")", ""))
+                    st.session_state.edit_pr_id = eid
+                    st.session_state.edit_pr_data = df_pr[df_pr['id'] == eid].iloc[0]['raw_data']
+                    st.session_state.mode_pr = "entry"
+                    st.rerun()
+            
+            st.divider()
+            render_icon_grid(df_pr, pr_game)
+            
+        else:
+            if st.button("🔙 Back", key="pr_back_btn"):
+                st.session_state.mode_pr = "grid"
+                st.rerun()
+            
+            def gv(sec, k, d):
+                if not st.session_state.edit_pr_data: return d
+                if sec: return st.session_state.edit_pr_data.get(sec, {}).get(k, d)
+                return st.session_state.edit_pr_data.get(k, d)
 
-        st.subheader("🧠 Weekly Reflections")
-        st.write("*Jot down your thoughts. They will be formatted onto the right-side of your PDF report.*")
-        col_ref1, col_ref2 = st.columns(2)
-        learnings_input = col_ref1.text_area(f"Learnings for Week {selected_week}", placeholder="What did you figure out? What needs work?", height=120)
-        successes_input = col_ref2.text_area(f"Successes for Week {selected_week}", placeholder="What went really well? Any PBs?", height=120)
+            t1, t2, t3, t4, t5 = st.tabs(["🚩 On-Course", "🚀 Driving", "🎯 Scoring", "🪤 Short Game", "⛳ Putting"])
+            with t1:
+                col_a, col_b = st.columns(2)
+                pr_gross = col_a.number_input("Gross Score", value=gv(None, "gross_score", 72))
+                pr_to_par = col_b.number_input("Score to Par", value=gv(None, "score_to_par", 0))
+                pr_gir = st.number_input("Total GIR", value=gv(None, "gir_total", 9))
+            with t2:
+                pr_fw = st.number_input("Fairways Hit", value=gv("driving", "fw", 7))
+                pr_tee = st.number_input("Total Tee Shots", value=gv("driving", "tee", 14))
+            with t3:
+                pr_szl = st.number_input("Score 150-200", value=gv("scoring", "szl", 0))
+                pr_szm = st.number_input("Score 100-150", value=gv("scoring", "szm", 0))
+                pr_szs = st.number_input("Score 50-100", value=gv("scoring", "szs", 0))
+            with t4:
+                pr_sg_up = st.number_input("Up & Downs", value=gv("short_game", "up", 4))
+                pr_sg_6 = st.number_input("Inside 6ft", value=gv("short_game", "s6", 3))
+            with t5:
+                pr_putts = st.number_input("Total Putts", value=gv("putting", "putts", 30))
+                pr_sg_p = st.number_input("SG Putting", value=float(gv("putting", "sgp", 0.0)))
 
+            if st.button("💾 Save Practice Round", type="primary", use_container_width=True, key="save_pr_final"):
+                payload = {
+                    "gross_score": pr_gross, "score_to_par": pr_to_par, "gir_total": pr_gir,
+                    "driving": {"fw": pr_fw, "tee": pr_tee},
+                    "scoring": {"szl": pr_szl, "szm": pr_szm, "szs": pr_szs},
+                    "short_game": {"up": pr_sg_up, "s6": pr_sg_6},
+                    "putting": {"putts": pr_putts, "sgp": pr_sg_p}
+                }
+                data = {"user_name": st.session_state.current_user, "game_category": "Practice Rounds", "game_name": pr_game, "score_primary": pr_to_par, "raw_data": payload, "week_number": current_week}
+                if st.session_state.edit_pr_id:
+                    supabase.table("practice_logs").update(data).eq("id", st.session_state.edit_pr_id).execute()
+                else:
+                    supabase.table("practice_logs").insert(data).execute()
+                st.session_state.mode_pr = "grid"
+                st.rerun()
+
+    # ==========================================
+    # PAGE: DRIVING
+    # ==========================================
+    elif st.session_state.page == "Driving":
+        st.title("🚀 Driving Combine")
+        if 'mode_10shot' not in st.session_state: st.session_state.mode_10shot = "grid"
+        if 'mode_ssbs' not in st.session_state: st.session_state.mode_ssbs = "grid"
+
+        sel_game = st.radio("Drill:", ["10 Shot", "Max SS/BS"], horizontal=True, key="drv_radio", label_visibility="collapsed")
+        
+        if sel_game == "10 Shot":
+            if st.session_state.mode_10shot == "grid":
+                if st.button("➕ New Entry", key="new_10s"):
+                    st.session_state.mode_10shot = "entry"
+                    st.rerun()
+                render_icon_grid(df_logs[df_logs['game_name'] == "10 Shot"], "10 Shot")
+            else:
+                if st.button("🔙 Back", key="back_10s"):
+                    st.session_state.mode_10shot = "grid"
+                    st.rerun()
+                sc = st.number_input("Final Score", value=0.0)
+                if st.button("Save", key="save_10s"):
+                    d = {"user_name": st.session_state.current_user, "game_category": "Driving", "game_name": "10 Shot", "score_primary": sc, "week_number": current_week}
+                    supabase.table("practice_logs").insert(d).execute()
+                    st.session_state.mode_10shot = "grid"
+                    st.rerun()
+
+        elif sel_game == "Max SS/BS":
+            if st.session_state.mode_ssbs == "grid":
+                if st.button("➕ New Entry", key="new_ss"):
+                    st.session_state.mode_ssbs = "entry"
+                    st.rerun()
+                render_icon_grid(df_logs[df_logs['game_name'] == "Max SS/BS"], "Max SS/BS")
+            else:
+                if st.button("🔙 Back", key="back_ss"):
+                    st.session_state.mode_ssbs = "grid"
+                    st.rerun()
+                s1 = st.number_input("Swing Speed", value=110.0)
+                s2 = st.number_input("Ball Speed", value=160.0)
+                if st.button("Save", key="save_ss"):
+                    d = {"user_name": st.session_state.current_user, "game_category": "Driving", "game_name": "Max SS/BS", "score_primary": s1, "score_secondary": s2, "week_number": current_week}
+                    supabase.table("practice_logs").insert(d).execute()
+                    st.session_state.mode_ssbs = "grid"
+                    st.rerun()
+
+    # ==========================================
+    # PAGE: SCORING ZONES (LONG / MID / SHORT)
+    # ==========================================
+    elif st.session_state.page in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"]:
+        cat = st.session_state.page
+        st.title(f"🎯 {cat}")
+        
+        # Determine labels based on category
+        dist_map = {"Scoring Zone Long": "150-200", "Scoring Zone Mid": "100-150", "Scoring Zone Short": "50-100"}
+        dist = dist_map[cat]
+        sit_label = f"Situational Practice {dist}"
+        tm_label = f"TM {dist}"
+        
+        sel_game = st.radio("Drill:", [sit_label, tm_label], horizontal=True, key=f"rad_{cat}")
+        
+        df_sub = df_logs[df_logs['game_name'] == sel_game]
+        if st.button("➕ New Entry", key=f"new_{cat}_{sel_game}"):
+            sc = st.number_input("Final Score", value=0.0, key=f"num_{cat}")
+            if st.button("Save", key=f"sav_{cat}"):
+                d = {"user_name": st.session_state.current_user, "game_category": cat, "game_name": sel_game, "score_primary": sc, "week_number": current_week}
+                supabase.table("practice_logs").insert(d).execute()
+                st.rerun()
         st.divider()
+        render_icon_grid(df_sub, sel_game)
+
+    # ==========================================
+    # PAGE: SHORT GAME
+    # ==========================================
+    elif st.session_state.page == "Short Game":
+        st.title("🪤 Short Game Combine")
+        sel = st.radio("Drill:", ["Par 21 WB", "20 to 50", "6ft Game"], horizontal=True, key="sg_rad")
+        df_sub = df_logs[df_logs['game_name'] == sel]
+        if st.button("➕ New Entry", key=f"new_sg_{sel}"):
+            sc = st.number_input("Score", value=0.0)
+            if st.button("Save", key=f"sav_sg_{sel}"):
+                d = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": sel, "score_primary": sc, "week_number": current_week}
+                supabase.table("practice_logs").insert(d).execute()
+                st.rerun()
+        st.divider()
+        render_icon_grid(df_sub, sel)
+
+    # ==========================================
+    # PAGE: PUTTING
+    # ==========================================
+    elif st.session_state.page == "Putting":
+        st.title("⛳ Putting Combine")
+        sel = st.radio("Drill:", ["Pace", "6-9-12", "2-8 Drill"], horizontal=True, key="pt_rad")
+        df_sub = df_logs[df_logs['game_name'] == sel]
+        if st.button("➕ New Entry", key=f"new_pt_{sel}"):
+            sc = st.number_input("Score", value=0.0)
+            if st.button("Save", key=f"sav_pt_{sel}"):
+                d = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": sel, "score_primary": sc, "week_number": current_week}
+                supabase.table("practice_logs").insert(d).execute()
+                st.rerun()
+        st.divider()
+        render_icon_grid(df_sub, sel)
+
+    # ==========================================
+    # PAGE: TRENDS
+    # ==========================================
+    elif st.session_state.page == "Your Practice Trends":
+        st.title("📈 Practice Trends")
+        st.write("Trends logic initialized.")
         
     # ==========================================
     # PAGE: PRACTICE ROUNDS (THE MASTER FORM)
