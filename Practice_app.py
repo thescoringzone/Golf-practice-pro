@@ -282,7 +282,7 @@ else:
         st.write("Track your practice completion and download your weekly reports.")
         
         # 1. Date Filtering & Time Machine Logic
-        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'])
+        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce', utc=True)
         
         logged_weeks = sorted(df_logs[df_logs['created_at'].dt.year == current_year]['created_at'].dt.isocalendar().week.dropna().unique().tolist(), reverse=True)
         if current_week not in logged_weeks:
