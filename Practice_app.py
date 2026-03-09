@@ -314,7 +314,12 @@ else:
             logged_weeks.insert(0, current_week)
             
         col_w1, col_w2 = st.columns([1, 3])
-        selected_week = col_w1.selectbox("📅 Select Week to View", logged_weeks, index=logged_weeks.index(current_week))
+        selected_week = col_w1.selectbox(
+            "📅 Select Week to View", 
+            logged_weeks, 
+            index=logged_weeks.index(current_week),
+            key="dashboard_week_selector"
+        )
         
         # Filter strictly by the explicit week_number we saved to Supabase
         df_cw = df_logs[(df_logs['week_number'] == selected_week) & (df_logs['Year'] == current_year)].copy()
@@ -643,7 +648,12 @@ else:
                 st.write("### ✏️ Resume or Edit a Past Round")
                 st.caption("Select a previously saved round to finish entering your stats.")
                 edit_opts = df_pr.apply(lambda row: f"{str(row['created_at'])[:10]} | Score to Par: {row['score_primary']} (ID: {row['id']})", axis=1).tolist()
-                selected_edit = st.selectbox("Select a round:", ["-- Select a round --"] + edit_opts, label_visibility="collapsed")
+                selected_edit = st.selectbox(
+                    "Select a round:", 
+                    ["-- Select a round --"] + edit_opts, 
+                    label_visibility="collapsed",
+                    key="pr_edit_selector" # Added this unique key
+                )
                 
                 if selected_edit != "-- Select a round --":
                     edit_id = int(selected_edit.split("(ID: ")[1].replace(")", ""))
