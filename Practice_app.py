@@ -243,20 +243,11 @@ else:
         
         # 1. Date Filtering Logic
         df_logs['created_at'] = pd.to_datetime(df_logs['created_at'])
+        df_cw = df_logs[(df_logs['created_at'].dt.isocalendar().week == current_week) & (df_logs['created_at'].dt.isocalendar().year == current_year)].copy()
         
-        # Current Week Data
-        df_cw = df_logs[
-            (df_logs['created_at'].dt.isocalendar().week == current_week) & 
-            (df_logs['created_at'].dt.isocalendar().year == current_year)
-        ].copy()
-        
-        # Last Week Data (For Momentum Math)
         last_week_dt = local_now - datetime.timedelta(days=7)
         lw_year, lw_week, _ = last_week_dt.isocalendar()
-        df_lw = df_logs[
-            (df_logs['created_at'].dt.isocalendar().week == lw_week) & 
-            (df_logs['created_at'].dt.isocalendar().year == lw_year)
-        ].copy()
+        df_lw = df_logs[(df_logs['created_at'].dt.isocalendar().week == lw_week) & (df_logs['created_at'].dt.isocalendar().year == lw_year)].copy()
         
         combine_structure = {
             "Driving": ["10 Shot", "Max SS/BS"],
@@ -286,7 +277,6 @@ else:
                 for game in games:
                     is_game_complete = game in completed_games_this_week
                     game_icon = "✅" if is_game_complete else "⭕"
-                    
                     col1, col2 = st.columns([4, 1])
                     col1.write(f"{game_icon}  {game}")
                     
@@ -302,13 +292,35 @@ else:
             
         st.divider()
         
+        # --- Ultra-Clean Logged Sessions ---
+        st.subheader("📝 This Week's Logged Sessions")
+        if df_cw.empty:
+            st.info("No practice logged yet this week. Use the checklist above to start your combine!")
+        else:
+            df_cw_sort = df_cw.sort_values('created_at', ascending=False)
+            df_display = df_cw_sort[['game_name', 'score_primary', 'score_secondary']].copy()
+            
+            def format_dashboard_score(row):
+                gn = row['game_name']
+                p = row['score_primary']
+                s = row['score_secondary']
+                if gn == "Max SS/BS": return f"{p:.0f} / {s:.0f}"
+                elif gn in ["20 to 50"]: return f"{p:.0f}%"
+                elif gn in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: return f"{p:.0f}"
+                else: return f"{p:.2f}"
+                
+            df_display['Score'] = df_display.apply(format_dashboard_score, axis=1)
+            df_clean = df_display[['game_name', 'Score']].rename(columns={'game_name': 'Drill'})
+            st.dataframe(df_clean, hide_index=True, use_container_width=True)
+            
+        st.divider()
+        
         # ==========================================
-        # THE CADDIE REPORT (PDF GENERATOR)
+        # THE CADDIE REPORT (LANDSCAPE PDF)
         # ==========================================
         st.subheader("📄 Your Weekly Caddie Report")
-        st.write("*Generate a 1-page PDF summary of your week-over-week performance.*")
+        st.write("*Generate a 1-page Landscape PDF summary of your week.*")
         
-        # Build the Analytical Table
         report_data = []
         lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
 
@@ -326,13 +338,11 @@ else:
                     cw_best_ss, cw_best_bs = cw_game['score_primary'].max(), cw_game['score_secondary'].max()
                     avg_str, best_str = f"{cw_avg_ss:.0f}/{cw_avg_bs:.0f}", f"{cw_best_ss:.0f}/{cw_best_bs:.0f}"
                     pct_str = "-"
-                    
                     if not lw_game.empty:
                         lw_avg_ss = lw_game['score_primary'].mean()
                         if lw_avg_ss > 0:
                             pct = ((cw_avg_ss - lw_avg_ss) / lw_avg_ss) * 100
                             pct_str = f"{pct:+.1f}% (SS)"
-                            
                     report_data.append([cat, game, avg_str, best_str, pct_str])
                 else:
                     cw_avg = cw_game['score_primary'].mean()
@@ -348,31 +358,37 @@ else:
                         lw_avg = lw_game['score_primary'].mean()
                         if lw_avg != 0: 
                             pct = ((cw_avg - lw_avg) / abs(lw_avg)) * 100
-                            if is_lower_better: pct = -pct # Flip sign so a drop in score shows as a + improvement!
+                            if is_lower_better: pct = -pct 
                             pct_str = f"{pct:+.1f}%"
-                            
                     report_data.append([cat, game, avg_str, best_str, pct_str])
                     
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
-        
-        # UI Polish: Create a Multi-Index so Streamlit merges the Category cells cleanly on the screen!
-        df_display = df_report.set_index(["Category", "Drill"])
-        st.dataframe(df_display, use_container_width=True)
+        df_display_ui = df_report.set_index(["Category", "Drill"])
+        st.dataframe(df_display_ui, use_container_width=True)
 
         # ---------------------------------------------------------
-        # PDF Compilation Function (Tour-Level Aesthetics)
+        # Weekly Reflections Inputs
         # ---------------------------------------------------------
-        def generate_pdf_report(df, week, year, username):
+        st.write("<br>", unsafe_allow_html=True)
+        st.subheader("🧠 Weekly Reflections")
+        st.write("*Jot down your thoughts. They will automatically be injected into your PDF report.*")
+        col_ref1, col_ref2 = st.columns(2)
+        learnings_input = col_ref1.text_area("Learnings of the week", placeholder="What did you figure out? What needs work?", height=120)
+        successes_input = col_ref2.text_area("Successes of the week", placeholder="What went really well? Any PBs?", height=120)
+
+        # ---------------------------------------------------------
+        # Landscape PDF Compilation Function
+        # ---------------------------------------------------------
+        def generate_pdf_report(df, week, year, username, l_text, s_text):
             class PDF(FPDF):
                 def header(self):
                     self.set_font("Helvetica", "B", 22)
-                    self.set_text_color(41, 55, 70) # Dark Slate 
-                    self.cell(0, 12, "GOLF PRACTICE PRO", ln=True, align="C")
-                    
+                    self.set_text_color(41, 55, 70) 
+                    self.cell(0, 10, "GOLF PRACTICE PRO", ln=True, align="C")
                     self.set_font("Helvetica", "I", 11)
-                    self.set_text_color(100, 100, 100) # Subtle Gray
+                    self.set_text_color(100, 100, 100) 
                     self.cell(0, 6, f"Weekly Caddie Report | Player: {username} | Week {week}, {year}", ln=True, align="C")
-                    self.ln(8)
+                    self.ln(6)
                     
                 def footer(self):
                     self.set_y(-15)
@@ -380,63 +396,93 @@ else:
                     self.set_text_color(150, 150, 150)
                     self.cell(0, 10, "Practice like a tour pro.", align="C")
                     
-            pdf = PDF(orientation="P", unit="mm", format="A4")
+            pdf = PDF(orientation="L", unit="mm", format="A4")
             pdf.add_page()
             
-            # Table Layout Config (190mm total width perfectly fits an A4 page)
-            col_widths = [70, 40, 40, 40]
-            headers = ["Drill", "Weekly Avg", "Weekly Best", "% Change (vs Last)"]
+            start_y = pdf.get_y()
             
+            # --- LEFT PANE: TABLE (150mm wide) ---
+            col_widths = [60, 30, 30, 30]
+            headers = ["Drill", "Avg", "Best", "% Change"]
             current_category = ""
             
             for _, row in df.iterrows():
-                # If we hit a new category, print a beautiful Full-Width Section Header
+                pdf.set_x(10)
                 if row["Category"] != current_category:
                     current_category = row["Category"]
-                    pdf.ln(4) # Spacing before new category
+                    pdf.ln(2) 
+                    pdf.set_x(10)
                     
-                    # Dark blue header for the Category Name
-                    pdf.set_font("Helvetica", "B", 11)
+                    pdf.set_font("Helvetica", "B", 10)
                     pdf.set_fill_color(41, 55, 70)
-                    pdf.set_text_color(255, 255, 255) # White Text
-                    pdf.cell(190, 9, f"  {current_category.upper()}", border=1, ln=True, fill=True)
+                    pdf.set_text_color(255, 255, 255)
+                    pdf.cell(150, 7, f"  {current_category.upper()}", border=1, ln=True, fill=True)
                     
-                    # Light gray column sub-headers directly underneath
-                    pdf.set_font("Helvetica", "B", 9)
+                    pdf.set_x(10)
+                    pdf.set_font("Helvetica", "B", 8)
                     pdf.set_fill_color(240, 240, 240)
-                    pdf.set_text_color(0, 0, 0) # Black Text
+                    pdf.set_text_color(0, 0, 0)
                     for i in range(len(headers)):
-                        pdf.cell(col_widths[i], 7, headers[i], border=1, align="C", fill=True)
+                        pdf.cell(col_widths[i], 6, headers[i], border=1, align="C", fill=True)
                     pdf.ln()
                 
-                # Draw the Data Rows
-                pdf.set_font("Helvetica", "", 9)
+                pdf.set_x(10)
+                pdf.set_font("Helvetica", "", 8)
                 pdf.set_text_color(0, 0, 0)
-                pdf.cell(col_widths[0], 8, f"  {str(row['Drill'])}", border=1)
-                pdf.cell(col_widths[1], 8, str(row['Weekly Avg']), border=1, align="C")
-                pdf.cell(col_widths[2], 8, str(row['Weekly Best']), border=1, align="C")
+                pdf.cell(col_widths[0], 7, f"  {str(row['Drill'])}", border=1)
+                pdf.cell(col_widths[1], 7, str(row['Weekly Avg']), border=1, align="C")
+                pdf.cell(col_widths[2], 7, str(row['Weekly Best']), border=1, align="C")
                 
-                # Dynamic Color Coding for Momentum
                 pct = str(row["% Change"])
-                if "+" in pct: 
-                    pdf.set_text_color(34, 139, 34) # Forest Green
-                elif "-" in pct and pct != "-": 
-                    pdf.set_text_color(220, 53, 69) # Crimson Red
-                    
-                pdf.cell(col_widths[3], 8, pct, border=1, align="C")
-                pdf.set_text_color(0, 0, 0) # Reset to black for the next line
+                if "+" in pct: pdf.set_text_color(34, 139, 34)
+                elif "-" in pct and pct != "-": pdf.set_text_color(220, 53, 69)
+                pdf.cell(col_widths[3], 7, pct, border=1, align="C")
+                pdf.set_text_color(0, 0, 0) 
                 pdf.ln()
-                
-            # Create the file securely
+
+            # --- RIGHT PANE: TEXT BOXES (115mm wide) ---
+            pdf.set_y(start_y + 2)
+            right_x = 170
+            box_width = 115
+            
+            # Learnings
+            pdf.set_x(right_x)
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.set_text_color(41, 55, 70)
+            pdf.cell(box_width, 8, "Learnings of the week", ln=1)
+            
+            # Constrain text to the right side
+            original_l_margin = pdf.l_margin
+            pdf.set_left_margin(right_x)
+            
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_text_color(0, 0, 0)
+            l_final = l_text.strip() if l_text else "\n\n\n\n\n"
+            pdf.multi_cell(box_width, 6, l_final, border=1)
+            
+            pdf.ln(8)
+            
+            # Successes
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.set_text_color(41, 55, 70)
+            pdf.cell(box_width, 8, "Successes of the week", ln=1)
+            
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_text_color(0, 0, 0)
+            s_final = s_text.strip() if s_text else "\n\n\n\n\n"
+            pdf.multi_cell(box_width, 6, s_final, border=1)
+            
+            pdf.set_left_margin(original_l_margin) # Reset margin
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 pdf.output(tmp.name)
                 with open(tmp.name, "rb") as f:
                     return f.read()
 
         # Download Button
-        pdf_bytes = generate_pdf_report(df_report, current_week, current_year, st.session_state.current_user)
+        pdf_bytes = generate_pdf_report(df_report, current_week, current_year, st.session_state.current_user, learnings_input, successes_input)
         st.download_button(
-            label="📄 Download 1-Page PDF Report",
+            label="📄 Download Landscape Report",
             data=pdf_bytes,
             file_name=f"Golf_Practice_Pro_Week_{current_week}.pdf",
             mime="application/pdf",
@@ -514,7 +560,7 @@ else:
         # --- DRILL: SPEED LIMITS ---
         elif selected_game == "Max SS/BS":
             st.subheader("Speed Limits (SS/BS)")
-            st.write("*Your Max Swing Speed and Ball Speed (in mph) with your Driver today.*")
+            st.write("*Your Max Swing Speed and Ball Speed (in mph) with your Driver today. **On-course measurements are highly preferred**, but range measurements can be used if needed.*")
             
             if st.session_state.mode_ssbs == "grid":
                 if st.button("➕ New Entry", key="new_ssbs", type="primary"):
