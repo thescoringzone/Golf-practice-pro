@@ -697,7 +697,7 @@ else:
         
         # --- DRILL: SITUATIONAL (ON COURSE) ---
         if selected_game == "On-Course 150-200":
-            st.write("*10 random situational shots between 150-200 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
+            st.write("*Choose random situational shots between 150-200 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
             st.caption("**Rules:** 5m from target (not pin) is a birdie, 10m is a par. Outside of 10m is bogey. Penalty shot is double.")
             
             if st.session_state.mode_szl_oc == "grid":
@@ -780,7 +780,7 @@ else:
         
         # --- DRILL: SITUATIONAL (ON COURSE) ---
         if selected_game == "On-Course 100-150":
-            st.write("*10 random situational shots between 100-150 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
+            st.write("*Choose random situational shots between 100-150 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
             st.caption("**Rules:** 4m from target (not pin) is a birdie, 8m is a par. Outside of 8m is bogey. Penalty shot is double.")
             
             if st.session_state.mode_szm_oc == "grid":
@@ -863,7 +863,7 @@ else:
         
         # --- DRILL: SITUATIONAL (ON COURSE) ---
         if selected_game == "On-Course 50-100":
-            st.write("*10 random situational shots between 50-100 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
+            st.write("*Choose random situational shots between 50-100 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
             st.caption("**Rules:** 3m from target (not pin) is a birdie, 6m is a par. Outside of 6m is bogey. Penalty shot is double.")
             
             if st.session_state.mode_szs_oc == "grid":
