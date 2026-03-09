@@ -691,11 +691,13 @@ else:
         if 'mode_szl_oc' not in st.session_state: st.session_state.mode_szl_oc = "grid"
         if 'mode_szl_tm' not in st.session_state: st.session_state.mode_szl_tm = "grid"
 
-        selected_game = st.radio("Select Drill:", ["On-Course 150-200", "TM 150-200"], horizontal=True, key="szl_radio", label_visibility="collapsed")
+        # Safely relabel the buttons without breaking the database
+        format_szl = {"On-Course 150-200": "Situational Practice 150-200", "TM 150-200": "TM 150-200"}
+        selected_game = st.radio("Select Drill:", ["On-Course 150-200", "TM 150-200"], format_func=lambda x: format_szl[x], horizontal=True, key="szl_radio", label_visibility="collapsed")
         
-        # --- DRILL: ON COURSE ---
+        # --- DRILL: SITUATIONAL (ON COURSE) ---
         if selected_game == "On-Course 150-200":
-            st.write("*Log your 150-200 yards/meter scoring zone scores when you practice on the course.*")
+            st.write("*10 random situational shots between 150-200 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
             st.caption("**Rules:** 5m from target (not pin) is a birdie, 10m is a par. Outside of 10m is bogey. Penalty shot is double.")
             
             if st.session_state.mode_szl_oc == "grid":
@@ -719,15 +721,12 @@ else:
                 final_score = total_score / total_shots
                 st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
 
-                # --- NEW DATE PICKER INJECTION ---
                 today_date = datetime.date.today()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_oc")
                 st.write("<br>", unsafe_allow_html=True)
-                # ---------------------------------
                 
-                if st.button("💾 Save On-Course Log", type="primary", use_container_width=True):
-                    # ADDED 'created_at' to the database payload below:
+                if st.button("💾 Save Situational Log", type="primary", use_container_width=True):
                     data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "On-Course 150-200", "score_primary": final_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
@@ -754,15 +753,12 @@ else:
                 
                 sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1)
 
-                # --- NEW DATE PICKER INJECTION ---
                 today_date = datetime.date.today()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_tm")
                 st.write("<br>", unsafe_allow_html=True)
-                # ---------------------------------
                 
                 if st.button("💾 Save TM Log", type="primary", use_container_width=True):
-                    # ADDED 'created_at' to the database payload below:
                     data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "TM 150-200", "score_primary": sg_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
@@ -778,11 +774,13 @@ else:
         if 'mode_szm_oc' not in st.session_state: st.session_state.mode_szm_oc = "grid"
         if 'mode_szm_tm' not in st.session_state: st.session_state.mode_szm_tm = "grid"
 
-        selected_game = st.radio("Select Drill:", ["On-Course 100-150", "TM 100-150"], horizontal=True, key="szm_radio", label_visibility="collapsed")
+        # Safely relabel the buttons without breaking the database
+        format_szm = {"On-Course 100-150": "Situational Practice 100-150", "TM 100-150": "TM 100-150"}
+        selected_game = st.radio("Select Drill:", ["On-Course 100-150", "TM 100-150"], format_func=lambda x: format_szm[x], horizontal=True, key="szm_radio", label_visibility="collapsed")
         
-        # --- DRILL: ON COURSE ---
+        # --- DRILL: SITUATIONAL (ON COURSE) ---
         if selected_game == "On-Course 100-150":
-            st.write("*Log your 100-150 yards/meter scoring zone scores when you practice on the course.*")
+            st.write("*10 random situational shots between 100-150 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
             st.caption("**Rules:** 4m from target (not pin) is a birdie, 8m is a par. Outside of 8m is bogey. Penalty shot is double.")
             
             if st.session_state.mode_szm_oc == "grid":
@@ -806,15 +804,12 @@ else:
                 final_score = total_score / total_shots
                 st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
 
-                # --- NEW DATE PICKER INJECTION ---
                 today_date = datetime.date.today()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szm_oc")
                 st.write("<br>", unsafe_allow_html=True)
-                # ---------------------------------
                 
-                if st.button("💾 Save On-Course Log", type="primary", use_container_width=True):
-                    # ADDED 'created_at' to the database payload below:
+                if st.button("💾 Save Situational Log", type="primary", use_container_width=True):
                     data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Mid", "game_name": "On-Course 100-150", "score_primary": final_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
@@ -841,15 +836,12 @@ else:
                 
                 sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1, key="szm_sg")
 
-                # --- NEW DATE PICKER INJECTION ---
                 today_date = datetime.date.today()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szm_tm")
                 st.write("<br>", unsafe_allow_html=True)
-                # ---------------------------------
                 
                 if st.button("💾 Save TM Log", type="primary", use_container_width=True):
-                    # ADDED 'created_at' to the database payload below:
                     data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Mid", "game_name": "TM 100-150", "score_primary": sg_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
@@ -865,11 +857,13 @@ else:
         if 'mode_szs_oc' not in st.session_state: st.session_state.mode_szs_oc = "grid"
         if 'mode_szs_tm' not in st.session_state: st.session_state.mode_szs_tm = "grid"
 
-        selected_game = st.radio("Select Drill:", ["On-Course 50-100", "TM 50-100"], horizontal=True, key="szs_radio", label_visibility="collapsed")
+        # Safely relabel the buttons without breaking the database
+        format_szs = {"On-Course 50-100": "Situational Practice 50-100", "TM 50-100": "TM 50-100"}
+        selected_game = st.radio("Select Drill:", ["On-Course 50-100", "TM 50-100"], format_func=lambda x: format_szs[x], horizontal=True, key="szs_radio", label_visibility="collapsed")
         
-        # --- DRILL: ON COURSE ---
+        # --- DRILL: SITUATIONAL (ON COURSE) ---
         if selected_game == "On-Course 50-100":
-            st.write("*Log your 50-100 yards/meter scoring zone scores when you practice on the course.*")
+            st.write("*10 random situational shots between 50-100 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
             st.caption("**Rules:** 3m from target (not pin) is a birdie, 6m is a par. Outside of 6m is bogey. Penalty shot is double.")
             
             if st.session_state.mode_szs_oc == "grid":
@@ -893,15 +887,12 @@ else:
                 final_score = total_score / total_shots
                 st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
 
-                # --- NEW DATE PICKER INJECTION ---
                 today_date = datetime.date.today()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szs_oc")
                 st.write("<br>", unsafe_allow_html=True)
-                # ---------------------------------
                 
-                if st.button("💾 Save On-Course Log", type="primary", use_container_width=True):
-                    # ADDED 'created_at' to the database payload below:
+                if st.button("💾 Save Situational Log", type="primary", use_container_width=True):
                     data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "On-Course 50-100", "score_primary": final_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
@@ -928,15 +919,12 @@ else:
                 
                 total_attempts = st.number_input("Total Shots Taken to Complete", min_value=11, value=15, step=1)
 
-                # --- NEW DATE PICKER INJECTION ---
                 today_date = datetime.date.today()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szs_tm")
                 st.write("<br>", unsafe_allow_html=True)
-                # ---------------------------------
                 
                 if st.button("💾 Save TM Ladder Log", type="primary", use_container_width=True):
-                    # ADDED 'created_at' to the database payload below:
                     data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "TM 50-100", "score_primary": total_attempts, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Ladder complete and saved!")
