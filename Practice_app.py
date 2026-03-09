@@ -499,34 +499,28 @@ else:
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
 
         # ---------------------------------------------------------
-        # Landscape PDF Compilation Function
+        # Landscape PDF Compilation Function (1-Page Lock enabled)
         # ---------------------------------------------------------
         def generate_pdf_report(df, week, year, username, l_text, s_text):
             class PDF(FPDF):
                 def header(self):
-                    self.set_y(8) # Push header up slightly to save space
+                    self.set_y(8) 
                     self.set_font("Helvetica", "B", 18)
                     self.set_text_color(41, 55, 70) 
-                    self.cell(0, 7, "GOLF PRACTICE PRO", ln=True, align="C")
+                    self.cell(0, 7, "THE PRACTICE CLUB", ln=True, align="C")
                     self.set_font("Helvetica", "I", 10)
                     self.set_text_color(100, 100, 100) 
-                    self.cell(0, 5, f"Weekly Caddie Report | Player: {username} | Week {week}, {year}", ln=True, align="C")
-                    self.ln(3) # Tighter gap before content
-                    
-                def footer(self):
-                    self.set_y(-12)
-                    self.set_font("Helvetica", "I", 8)
-                    self.set_text_color(150, 150, 150)
-                    self.cell(0, 10, "Practice like a tour pro.", align="C")
+                    self.cell(0, 5, f"Tour Pro Edition | Player: {username} | Week {week}, {year}", ln=True, align="C")
+                    self.ln(3) 
                     
             pdf = PDF(orientation="L", unit="mm", format="A4")
-            # Set tighter margins (top, left, right) to guarantee 1-page fit
             pdf.set_margins(10, 8, 10) 
+            pdf.set_auto_page_break(auto=False) # NUCLEAR LOCK: Forces everything onto 1 page!
             pdf.add_page()
             
             start_y = pdf.get_y()
             
-            # --- LEFT PANE: TABLE (150mm wide) ---
+            # --- LEFT PANE: TABLE ---
             col_widths = [60, 30, 30, 30]
             headers = ["Drill", "Avg", "Best", "% Change"]
             current_category = ""
@@ -535,10 +529,9 @@ else:
                 pdf.set_x(10)
                 if row["Category"] != current_category:
                     current_category = row["Category"]
-                    pdf.ln(1.5) # Minimal gap between categories
+                    pdf.ln(1.5) 
                     pdf.set_x(10)
                     
-                    # Category Header (Slightly thinner)
                     pdf.set_font("Helvetica", "B", 9)
                     pdf.set_fill_color(41, 55, 70)
                     pdf.set_text_color(255, 255, 255)
@@ -552,7 +545,6 @@ else:
                         pdf.cell(col_widths[i], 5, headers[i], border=1, align="C", fill=True)
                     pdf.ln()
                 
-                # Data Rows (Compressed to 5mm height)
                 pdf.set_x(10)
                 pdf.set_font("Helvetica", "", 7.5)
                 pdf.set_text_color(0, 0, 0)
@@ -567,18 +559,16 @@ else:
                 pdf.set_text_color(0, 0, 0) 
                 pdf.ln()
 
-            # Capture exactly where the table ended!
             table_end_y = pdf.get_y() 
 
-            # --- RIGHT PANE: TEXT BOXES (120mm wide) ---
+            # --- RIGHT PANE: TEXT BOXES ---
             right_x = 165
             box_width = 120
             
-            # Dynamic Box Height: Mathematically calculate height so boxes perfectly match the table length
             total_available_height = table_end_y - start_y
             box_height = (total_available_height - 18) / 2
             
-            # Box 1: Learnings
+            # Learnings
             pdf.set_xy(right_x, start_y)
             pdf.set_font("Helvetica", "B", 11)
             pdf.set_text_color(41, 55, 70)
@@ -594,9 +584,9 @@ else:
             pdf.set_text_color(0, 0, 0)
             pdf.multi_cell(box_width - 4, 4.5, l_text.strip() if l_text else "")
             
-            # Box 2: Successes
+            # Successes
             pdf.set_left_margin(original_l_margin) 
-            success_start_y = box1_y + box_height + 4 # 4mm gap between the two boxes
+            success_start_y = box1_y + box_height + 4 
             
             pdf.set_xy(right_x, success_start_y)
             pdf.set_font("Helvetica", "B", 11)
@@ -614,17 +604,22 @@ else:
             
             pdf.set_left_margin(original_l_margin) 
 
+            # Explicitly draw footer since we locked the page breaking
+            pdf.set_y(195)
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_text_color(150, 150, 150)
+            pdf.cell(0, 10, "The Practice Club - Tour Pro Edition", align="C")
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 pdf.output(tmp.name)
                 with open(tmp.name, "rb") as f:
                     return f.read()
 
-        # Download Button
         pdf_bytes = generate_pdf_report(df_report, current_week, current_year, st.session_state.current_user, learnings_input, successes_input)
         st.download_button(
             label="📄 Download Landscape Report",
             data=pdf_bytes,
-            file_name=f"Golf_Practice_Pro_Week_{current_week}.pdf",
+            file_name=f"The_Practice_Club_Week_{current_week}.pdf",
             mime="application/pdf",
             type="primary",
             use_container_width=True
