@@ -224,6 +224,77 @@ def render_icon_grid(df_game, game_name):
                         supabase.table("practice_logs").delete().eq("id", row['id']).execute()
                         st.rerun()
 
+def render_on_course_performance(category):
+    # Pull all practice rounds
+    pr_df = df_logs[df_logs['game_category'] == "Practice Rounds"]
+    if pr_df.empty: return
+    
+    # Safely extract the raw data dicts
+    raw_list = [r for r in pr_df['raw_data'].tolist() if isinstance(r, dict)]
+    if not raw_list: return
+    
+    st.markdown(f"### ⛳ On-Course {category} Stats")
+    st.caption("Aggregated from your logged Practice Rounds.")
+    with st.container(border=True):
+        if category == "Driving":
+            fw = sum(r.get('driving', {}).get('fairways_hit', 0) for r in raw_list)
+            tee = sum(r.get('driving', {}).get('tee_shots', 0) for r in raw_list)
+            acc = (fw / tee * 100) if tee > 0 else 0
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Fairways Hit", fw)
+            c2.metric("Total Tee Shots", tee)
+            c3.metric("FW Accuracy", f"{acc:.0f}%")
+            
+        elif category == "Scoring Zone Long":
+            s = sum(r.get('scoring_zone', {}).get('szl_score', 0) for r in raw_list)
+            n = sum(r.get('scoring_zone', {}).get('szl_shots', 0) for r in raw_list)
+            avg = s/n if n > 0 else 0
+            c1, c2 = st.columns(2)
+            c1.metric("Total Score to Par (150-200)", f"{'+' if s>0 else ''}{s}")
+            c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+        elif category == "Scoring Zone Mid":
+            s = sum(r.get('scoring_zone', {}).get('szm_score', 0) for r in raw_list)
+            n = sum(r.get('scoring_zone', {}).get('szm_shots', 0) for r in raw_list)
+            avg = s/n if n > 0 else 0
+            c1, c2 = st.columns(2)
+            c1.metric("Total Score to Par (100-150)", f"{'+' if s>0 else ''}{s}")
+            c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+        elif category == "Scoring Zone Short":
+            s = sum(r.get('scoring_zone', {}).get('szs_score', 0) for r in raw_list)
+            n = sum(r.get('scoring_zone', {}).get('szs_shots', 0) for r in raw_list)
+            avg = s/n if n > 0 else 0
+            c1, c2 = st.columns(2)
+            c1.metric("Total Score to Par (50-100)", f"{'+' if s>0 else ''}{s}")
+            c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+        elif category == "Short Game":
+            tot = sum(r.get('short_game', {}).get('total_shots', 0) for r in raw_list)
+            ud = sum(r.get('short_game', {}).get('up_and_downs', 0) for r in raw_list)
+            in6 = sum(r.get('short_game', {}).get('inside_6ft', 0) for r in raw_list)
+            scr_pct = (ud / tot * 100) if tot > 0 else 0
+            in6_pct = (in6 / tot * 100) if tot > 0 else 0
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Scrambling (Up & Down)", f"{scr_pct:.0f}%")
+            c2.metric("Shots Inside 6ft", f"{in6_pct:.0f}%")
+            c3.metric("Total SG Shots", tot)
+
+        elif category == "Putting":
+            tp = sum(r.get('putting', {}).get('total_putts', 0) for r in raw_list)
+            sgp = sum(r.get('putting', {}).get('sg_putting', 0.0) for r in raw_list)
+            # Only average rounds where putting was actually logged to avoid skewed data
+            rounds = len([r for r in raw_list if r.get('putting', {}).get('total_putts', 0) > 0]) 
+            lt = sum(r.get('putting', {}).get('lag_putts_total', 0) for r in raw_list)
+            ls = sum(r.get('putting', {}).get('lag_putts_success', 0) for r in raw_list)
+            lag_pct = (ls / lt * 100) if lt > 0 else 0
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Avg SG Putting (per round)", f"{(sgp/rounds):+.2f}" if rounds > 0 else "0.00")
+            c2.metric("Total Putts", tp)
+            c3.metric("Lag Putting Success", f"{lag_pct:.0f}%")
+    st.write("<br>", unsafe_allow_html=True)
+
 # ==========================================
 # 5. ROUTING: LOGIN GATE
 # ==========================================
@@ -826,6 +897,8 @@ else:
     # ==========================================
     elif st.session_state.page == "Driving":
         st.title("🚀 Driving Combine")
+
+        render_on_course_performance("Driving")
         
         if 'mode_10shot' not in st.session_state: st.session_state.mode_10shot = "grid"
         if 'mode_ssbs' not in st.session_state: st.session_state.mode_ssbs = "grid"
@@ -933,6 +1006,8 @@ else:
     # ==========================================
     elif st.session_state.page == "Scoring Zone Long":
         st.title("🎯 Scoring Zone Long (150-200)")
+
+        render_on_course_performance("Scoring Zone Long")
         
         if 'mode_szl_oc' not in st.session_state: st.session_state.mode_szl_oc = "grid"
         if 'mode_szl_tm' not in st.session_state: st.session_state.mode_szl_tm = "grid"
@@ -1013,6 +1088,8 @@ else:
     # ==========================================
     elif st.session_state.page == "Scoring Zone Mid":
         st.title("🎯 Scoring Zone Mid (100-150)")
+
+        render_on_course_performance("Scoring Zone Mid")
         
         if 'mode_szm_oc' not in st.session_state: st.session_state.mode_szm_oc = "grid"
         if 'mode_szm_tm' not in st.session_state: st.session_state.mode_szm_tm = "grid"
@@ -1093,6 +1170,8 @@ else:
     # ==========================================
     elif st.session_state.page == "Scoring Zone Short":
         st.title("🎯 Scoring Zone Short (50-100)")
+
+        render_on_course_performance("Scoring Zone Short")
         
         if 'mode_szs_oc' not in st.session_state: st.session_state.mode_szs_oc = "grid"
         if 'mode_szs_tm' not in st.session_state: st.session_state.mode_szs_tm = "grid"
@@ -1173,6 +1252,8 @@ else:
     # ==========================================
     elif st.session_state.page == "Short Game":
         st.title("🪤 Short Game Combine")
+
+        render_on_course_performance("Short Game")
         
         if 'mode_sg_par21' not in st.session_state: st.session_state.mode_sg_par21 = "grid"
         if 'mode_sg_2050' not in st.session_state: st.session_state.mode_sg_2050 = "grid"
@@ -1322,6 +1403,8 @@ else:
     # ==========================================
     elif st.session_state.page == "Putting":
         st.title("⛳ Putting Combine")
+
+        render_on_course_performance("Putting")
         
         if 'mode_putt_pace' not in st.session_state: st.session_state.mode_putt_pace = "grid"
         if 'mode_putt_6912' not in st.session_state: st.session_state.mode_putt_6912 = "grid"
