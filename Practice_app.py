@@ -225,75 +225,86 @@ def render_icon_grid(df_game, game_name):
                         st.rerun()
 
 def render_on_course_performance(category):
+    st.write(f"*These statistics are automatically aggregated from your logged **Practice Rounds**.*")
+    
     # Pull all practice rounds
     pr_df = df_logs[df_logs['game_category'] == "Practice Rounds"]
-    if pr_df.empty: return
     
+    if pr_df.empty: 
+        st.info("No Practice Rounds logged yet. Head over to the Practice Rounds page to log your first round!")
+        if st.button("➡️ Go to Practice Rounds", key=f"go_pr_empty_{category}", type="primary"):
+            st.session_state.page = "Practice Rounds"
+            st.rerun()
+        return
+        
     # Safely extract the raw data dicts
     raw_list = [r for r in pr_df['raw_data'].tolist() if isinstance(r, dict)]
     if not raw_list: return
     
-    st.markdown(f"### ⛳ On-Course {category} Stats")
-    st.caption("Aggregated from your logged Practice Rounds.")
-    with st.container(border=True):
-        if category == "Driving":
-            fw = sum(r.get('driving', {}).get('fairways_hit', 0) for r in raw_list)
-            tee = sum(r.get('driving', {}).get('tee_shots', 0) for r in raw_list)
-            acc = (fw / tee * 100) if tee > 0 else 0
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Fairways Hit", fw)
-            c2.metric("Total Tee Shots", tee)
-            c3.metric("FW Accuracy", f"{acc:.0f}%")
-            
-        elif category == "Scoring Zone Long":
-            s = sum(r.get('scoring_zone', {}).get('szl_score', 0) for r in raw_list)
-            n = sum(r.get('scoring_zone', {}).get('szl_shots', 0) for r in raw_list)
-            avg = s/n if n > 0 else 0
-            c1, c2 = st.columns(2)
-            c1.metric("Total Score to Par (150-200)", f"{'+' if s>0 else ''}{s}")
-            c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
-
-        elif category == "Scoring Zone Mid":
-            s = sum(r.get('scoring_zone', {}).get('szm_score', 0) for r in raw_list)
-            n = sum(r.get('scoring_zone', {}).get('szm_shots', 0) for r in raw_list)
-            avg = s/n if n > 0 else 0
-            c1, c2 = st.columns(2)
-            c1.metric("Total Score to Par (100-150)", f"{'+' if s>0 else ''}{s}")
-            c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
-
-        elif category == "Scoring Zone Short":
-            s = sum(r.get('scoring_zone', {}).get('szs_score', 0) for r in raw_list)
-            n = sum(r.get('scoring_zone', {}).get('szs_shots', 0) for r in raw_list)
-            avg = s/n if n > 0 else 0
-            c1, c2 = st.columns(2)
-            c1.metric("Total Score to Par (50-100)", f"{'+' if s>0 else ''}{s}")
-            c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
-
-        elif category == "Short Game":
-            tot = sum(r.get('short_game', {}).get('total_shots', 0) for r in raw_list)
-            ud = sum(r.get('short_game', {}).get('up_and_downs', 0) for r in raw_list)
-            in6 = sum(r.get('short_game', {}).get('inside_6ft', 0) for r in raw_list)
-            scr_pct = (ud / tot * 100) if tot > 0 else 0
-            in6_pct = (in6 / tot * 100) if tot > 0 else 0
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Scrambling (Up & Down)", f"{scr_pct:.0f}%")
-            c2.metric("Shots Inside 6ft", f"{in6_pct:.0f}%")
-            c3.metric("Total SG Shots", tot)
-
-        elif category == "Putting":
-            tp = sum(r.get('putting', {}).get('total_putts', 0) for r in raw_list)
-            sgp = sum(r.get('putting', {}).get('sg_putting', 0.0) for r in raw_list)
-            # Only average rounds where putting was actually logged to avoid skewed data
-            rounds = len([r for r in raw_list if r.get('putting', {}).get('total_putts', 0) > 0]) 
-            lt = sum(r.get('putting', {}).get('lag_putts_total', 0) for r in raw_list)
-            ls = sum(r.get('putting', {}).get('lag_putts_success', 0) for r in raw_list)
-            lag_pct = (ls / lt * 100) if lt > 0 else 0
-            
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Avg SG Putting (per round)", f"{(sgp/rounds):+.2f}" if rounds > 0 else "0.00")
-            c2.metric("Total Putts", tp)
-            c3.metric("Lag Putting Success", f"{lag_pct:.0f}%")
     st.write("<br>", unsafe_allow_html=True)
+    
+    if category == "Driving":
+        fw = sum(r.get('driving', {}).get('fairways_hit', 0) for r in raw_list)
+        tee = sum(r.get('driving', {}).get('tee_shots', 0) for r in raw_list)
+        acc = (fw / tee * 100) if tee > 0 else 0
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Fairways Hit", fw)
+        c2.metric("Total Tee Shots", tee)
+        c3.metric("FW Accuracy", f"{acc:.0f}%")
+        
+    elif category == "Scoring Zone Long":
+        s = sum(r.get('scoring_zone', {}).get('szl_score', 0) for r in raw_list)
+        n = sum(r.get('scoring_zone', {}).get('szl_shots', 0) for r in raw_list)
+        avg = s/n if n > 0 else 0
+        c1, c2 = st.columns(2)
+        c1.metric("Total Score to Par (150-200)", f"{'+' if s>0 else ''}{s}")
+        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+    elif category == "Scoring Zone Mid":
+        s = sum(r.get('scoring_zone', {}).get('szm_score', 0) for r in raw_list)
+        n = sum(r.get('scoring_zone', {}).get('szm_shots', 0) for r in raw_list)
+        avg = s/n if n > 0 else 0
+        c1, c2 = st.columns(2)
+        c1.metric("Total Score to Par (100-150)", f"{'+' if s>0 else ''}{s}")
+        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+    elif category == "Scoring Zone Short":
+        s = sum(r.get('scoring_zone', {}).get('szs_score', 0) for r in raw_list)
+        n = sum(r.get('scoring_zone', {}).get('szs_shots', 0) for r in raw_list)
+        avg = s/n if n > 0 else 0
+        c1, c2 = st.columns(2)
+        c1.metric("Total Score to Par (50-100)", f"{'+' if s>0 else ''}{s}")
+        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+    elif category == "Short Game":
+        tot = sum(r.get('short_game', {}).get('total_shots', 0) for r in raw_list)
+        ud = sum(r.get('short_game', {}).get('up_and_downs', 0) for r in raw_list)
+        in6 = sum(r.get('short_game', {}).get('inside_6ft', 0) for r in raw_list)
+        scr_pct = (ud / tot * 100) if tot > 0 else 0
+        in6_pct = (in6 / tot * 100) if tot > 0 else 0
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Scrambling (Up & Down)", f"{scr_pct:.0f}%")
+        c2.metric("Shots Inside 6ft", f"{in6_pct:.0f}%")
+        c3.metric("Total SG Shots", tot)
+
+    elif category == "Putting":
+        tp = sum(r.get('putting', {}).get('total_putts', 0) for r in raw_list)
+        sgp = sum(r.get('putting', {}).get('sg_putting', 0.0) for r in raw_list)
+        rounds = len([r for r in raw_list if r.get('putting', {}).get('total_putts', 0) > 0]) 
+        lt = sum(r.get('putting', {}).get('lag_putts_total', 0) for r in raw_list)
+        ls = sum(r.get('putting', {}).get('lag_putts_success', 0) for r in raw_list)
+        lag_pct = (ls / lt * 100) if lt > 0 else 0
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Avg SG Putting (per round)", f"{(sgp/rounds):+.2f}" if rounds > 0 else "0.00")
+        c2.metric("Total Putts", tp)
+        c3.metric("Lag Putting Success", f"{lag_pct:.0f}%")
+        
+    st.divider()
+    if st.button("➕ Log More On-Course Data", key=f"nav_to_pr_{category}", type="primary"):
+        st.session_state.page = "Practice Rounds"
+        st.session_state.mode_pr = "entry"
+        st.rerun()
 
 # ==========================================
 # 5. ROUTING: LOGIN GATE
@@ -897,15 +908,19 @@ else:
     # ==========================================
     elif st.session_state.page == "Driving":
         st.title("🚀 Driving Combine")
-
-        render_on_course_performance("Driving")
         
         if 'mode_10shot' not in st.session_state: st.session_state.mode_10shot = "grid"
         if 'mode_ssbs' not in st.session_state: st.session_state.mode_ssbs = "grid"
 
-        selected_game = st.radio("Select Drill:", ["10 Shot", "Max SS/BS"], horizontal=True, key="driving_radio", label_visibility="collapsed")
+        # WE ADD "On-Course Stats" TO THE MENU HERE
+        selected_game = st.radio("Select Drill:", ["On-Course Stats", "10 Shot", "Max SS/BS"], horizontal=True, key="driving_radio", label_visibility="collapsed")
         
-        if selected_game == "10 Shot":
+        # WE ADD THE NEW TAB LOGIC HERE
+        if selected_game == "On-Course Stats":
+            st.subheader("On-Course Driving Stats")
+            render_on_course_performance("Driving")
+            
+        elif selected_game == "10 Shot":
             st.subheader("The 10 Shot Game")
             st.write("*Hit 10 shots. Carry distance (yds/m) minus offline total (ft). Average is your final score.*")
             
