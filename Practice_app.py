@@ -227,17 +227,32 @@ else:
     # ==========================================
     # PAGE: WEEKLY DASHBOARD
     # ==========================================
-    if st.session_state.page == "Weekly Dashboard":
-        st.title(f"📊 Week {current_week} Dashboard")
-        st.write("Track your practice completion and download your weekly report.")
+    elif st.session_state.page == "Weekly Dashboard":
+        st.title("📊 Weekly Dashboard")
+        st.write("Track your practice completion and download your weekly reports.")
         
-        # 1. Date Filtering Logic
+        # 1. Date Filtering & Time Machine Logic
         df_logs['created_at'] = pd.to_datetime(df_logs['created_at'])
-        df_cw = df_logs[(df_logs['created_at'].dt.isocalendar().week == current_week) & (df_logs['created_at'].dt.isocalendar().year == current_year)].copy()
         
-        last_week_dt = local_now - datetime.timedelta(days=7)
-        lw_year, lw_week, _ = last_week_dt.isocalendar()
-        df_lw = df_logs[(df_logs['created_at'].dt.isocalendar().week == lw_week) & (df_logs['created_at'].dt.isocalendar().year == lw_year)].copy()
+        # Find all weeks the user has practiced in the current year
+        logged_weeks = sorted(df_logs[df_logs['created_at'].dt.year == current_year]['created_at'].dt.isocalendar().week.dropna().unique().tolist(), reverse=True)
+        if current_week not in logged_weeks:
+            logged_weeks.insert(0, current_week)
+            
+        col_w1, col_w2 = st.columns([1, 3])
+        selected_week = col_w1.selectbox("📅 Select Week to View", logged_weeks, index=logged_weeks.index(current_week))
+        
+        # Filter for the SELECTED week
+        df_cw = df_logs[(df_logs['created_at'].dt.isocalendar().week == selected_week) & (df_logs['created_at'].dt.year == current_year)].copy()
+        
+        # Calculate the week BEFORE the selected week for momentum comparison
+        lw_week = selected_week - 1
+        lw_year = current_year
+        if lw_week == 0:  # Handle year crossover
+            lw_week = 52
+            lw_year -= 1
+            
+        df_lw = df_logs[(df_logs['created_at'].dt.isocalendar().week == lw_week) & (df_logs['created_at'].dt.year == lw_year)].copy()
         
         combine_structure = {
             "Driving": ["10 Shot", "Max SS/BS"],
@@ -255,7 +270,7 @@ else:
         completion_count = len([c for c in core_categories if c in completed_cats_this_week])
         progress_pct = completion_count / len(core_categories)
         
-        st.subheader("🎯 Weekly Combine Checklist")
+        st.subheader(f"🎯 Week {selected_week} Combine Checklist")
         st.progress(progress_pct, text=f"Combine Completion: {completion_count} / {len(core_categories)} Categories")
         st.write("<br>", unsafe_allow_html=True)
         
@@ -270,7 +285,7 @@ else:
                     col1, col2 = st.columns([4, 1])
                     col1.write(f"{game_icon}  {game}")
                     
-                    if col2.button("Practice ➡️", key=f"nav_{cat}_{game}", use_container_width=True):
+                    if col2.button("Practice ➡️", key=f"nav_{cat}_{game}_{selected_week}", use_container_width=True):
                         st.session_state.page = cat
                         if cat == "Driving": st.session_state.driving_radio = game
                         elif cat == "Scoring Zone Long": st.session_state.szl_radio = game
@@ -283,9 +298,9 @@ else:
         st.divider()
         
         # --- Ultra-Clean Logged Sessions ---
-        st.subheader("📝 This Week's Logged Sessions")
+        st.subheader(f"📝 Week {selected_week} Logged Sessions")
         if df_cw.empty:
-            st.info("No practice logged yet this week. Use the checklist above to start your combine!")
+            st.info("No practice logged for this week.")
         else:
             df_cw_sort = df_cw.sort_values('created_at', ascending=False)
             df_display = df_cw_sort[['game_name', 'score_primary', 'score_secondary']].copy()
@@ -306,13 +321,13 @@ else:
         st.divider()
 
         # ---------------------------------------------------------
-        # Weekly Reflections Inputs (Moved to the Top!)
+        # Weekly Reflections Inputs
         # ---------------------------------------------------------
         st.subheader("🧠 Weekly Reflections")
         st.write("*Jot down your thoughts. They will be formatted onto the right-side of your PDF report.*")
         col_ref1, col_ref2 = st.columns(2)
-        learnings_input = col_ref1.text_area("Learnings of the week", placeholder="What did you figure out? What needs work?", height=120)
-        successes_input = col_ref2.text_area("Successes of the week", placeholder="What went really well? Any PBs?", height=120)
+        learnings_input = col_ref1.text_area(f"Learnings for Week {selected_week}", placeholder="What did you figure out? What needs work?", height=120)
+        successes_input = col_ref2.text_area(f"Successes for Week {selected_week}", placeholder="What went really well? Any PBs?", height=120)
 
         st.divider()
         
@@ -320,7 +335,7 @@ else:
         # THE CADDIE REPORT (LANDSCAPE PDF)
         # ==========================================
         st.subheader("📄 Your Weekly Caddie Report")
-        st.write("*Download your 1-page Landscape PDF summary (includes your master data and the reflections above).*")
+        st.write(f"*Download your 1-page Landscape PDF summary for Week {selected_week}.*")
         
         report_data = []
         lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
@@ -341,9 +356,9 @@ else:
                     pct_str = "-"
                     if not lw_game.empty:
                         lw_avg_ss = lw_game['score_primary'].mean()
-                        if lw_avg_ss > 0:
-                            pct = ((cw_avg_ss - lw_avg_ss) / lw_avg_ss) * 100
-                            pct_str = f"{pct:+.1f}% (SS)"
+                        denom_ss = lw_avg_ss if lw_avg_ss > 0 else 1.0
+                        pct = ((cw_avg_ss - lw_avg_ss) / denom_ss) * 100
+                        pct_str = f"{pct:+.1f}% (SS)"
                     report_data.append([cat, game, avg_str, best_str, pct_str])
                 else:
                     cw_avg = cw_game['score_primary'].mean()
@@ -357,16 +372,16 @@ else:
                     pct_str = "-"
                     if not lw_game.empty:
                         lw_avg = lw_game['score_primary'].mean()
-                        if lw_avg != 0: 
-                            pct = ((cw_avg - lw_avg) / abs(lw_avg)) * 100
-                            if is_lower_better: pct = -pct 
-                            pct_str = f"{pct:+.1f}%"
+                        denom = abs(lw_avg) if lw_avg != 0 else 1.0 
+                        pct = ((cw_avg - lw_avg) / denom) * 100
+                        if is_lower_better: pct = -pct 
+                        pct_str = f"{pct:+.1f}%"
                     report_data.append([cat, game, avg_str, best_str, pct_str])
                     
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
 
         # ---------------------------------------------------------
-        # Landscape PDF Compilation Function (1-Page Lock enabled)
+        # Landscape PDF Compilation Function
         # ---------------------------------------------------------
         def generate_pdf_report(df, week, year, username, l_text, s_text):
             class PDF(FPDF):
@@ -382,12 +397,11 @@ else:
                     
             pdf = PDF(orientation="L", unit="mm", format="A4")
             pdf.set_margins(10, 8, 10) 
-            pdf.set_auto_page_break(auto=False) # NUCLEAR LOCK: Forces everything onto 1 page!
+            pdf.set_auto_page_break(auto=False)
             pdf.add_page()
             
             start_y = pdf.get_y()
             
-            # --- LEFT PANE: TABLE ---
             col_widths = [60, 30, 30, 30]
             headers = ["Drill", "Avg", "Best", "% Change"]
             current_category = ""
@@ -428,14 +442,12 @@ else:
 
             table_end_y = pdf.get_y() 
 
-            # --- RIGHT PANE: TEXT BOXES ---
             right_x = 165
             box_width = 120
             
             total_available_height = table_end_y - start_y
             box_height = (total_available_height - 18) / 2
             
-            # Learnings
             pdf.set_xy(right_x, start_y)
             pdf.set_font("Helvetica", "B", 11)
             pdf.set_text_color(41, 55, 70)
@@ -451,7 +463,6 @@ else:
             pdf.set_text_color(0, 0, 0)
             pdf.multi_cell(box_width - 4, 4.5, l_text.strip() if l_text else "")
             
-            # Successes
             pdf.set_left_margin(original_l_margin) 
             success_start_y = box1_y + box_height + 4 
             
@@ -471,7 +482,6 @@ else:
             
             pdf.set_left_margin(original_l_margin) 
 
-            # Explicitly draw footer since we locked the page breaking
             pdf.set_y(195)
             pdf.set_font("Helvetica", "I", 8)
             pdf.set_text_color(150, 150, 150)
@@ -482,11 +492,11 @@ else:
                 with open(tmp.name, "rb") as f:
                     return f.read()
 
-        pdf_bytes = generate_pdf_report(df_report, current_week, current_year, st.session_state.current_user, learnings_input, successes_input)
+        pdf_bytes = generate_pdf_report(df_report, selected_week, current_year, st.session_state.current_user, learnings_input, successes_input)
         st.download_button(
-            label="📄 Download Landscape Report",
+            label=f"📄 Download Week {selected_week} Landscape Report",
             data=pdf_bytes,
-            file_name=f"The_Practice_Club_Week_{current_week}.pdf",
+            file_name=f"The_Practice_Club_Week_{selected_week}.pdf",
             mime="application/pdf",
             type="primary",
             use_container_width=True
