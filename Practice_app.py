@@ -1556,7 +1556,7 @@ else:
     # ==========================================
     elif st.session_state.page.lower() == "your practice trends":
         st.title("📈 Your Practice Trends")
-        st.write("Track your overall category momentum and individual drill performance in one unified view. *(Tip: Use Cmd+P or Ctrl+P to print this exact view to a PDF!)*")
+        st.write("Track your overall category momentum and individual drill performance in one unified view.")
         
         if df_logs.empty:
             st.info("No practice data logged yet. Head to the combine pages to log your first session!")
@@ -1593,7 +1593,7 @@ else:
             # 1. MACRO VIEW: OVERALL CATEGORY MOMENTUM
             # ==========================================
             st.subheader(f"🚀 {selected_cat} Overall Momentum")
-            st.write("*Your 'Running Baseline'. Shows overall percentage improvement across all drills in this category compared to the previous period.*")
+            st.write("*Your 'Running Baseline'. Shows overall percentage improvement or regression across all drills in this category compared to the previous period.*")
             
             df_agg_mom = df_cat.groupby(['Period_Sort', 'Group', 'game_name'])['score_primary'].mean().reset_index()
             pivot = df_agg_mom.pivot(index=['Period_Sort', 'Group'], columns='game_name', values='score_primary')
