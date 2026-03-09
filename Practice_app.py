@@ -945,8 +945,13 @@ else:
                 
                 final_score = st.number_input("Final Strokes Taken", min_value=9, value=21, step=1)
                 
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_sg_par21")
+                st.write("<br>", unsafe_allow_html=True)
+
                 if st.button("💾 Save Par 21 Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "Par 21 WB", "score_primary": final_score, "week_number": current_week}
+                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "Par 21 WB", "score_primary": final_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     st.session_state.mode_sg_par21 = "grid"
@@ -1012,9 +1017,14 @@ else:
                 st.divider()
                 st.metric("🎯 Final Combined Score (6ft Accuracy)", f"{pct_6ft:.0f}%")
                 
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_sg_2050")
+                st.write("<br>", unsafe_allow_html=True)
+
                 if st.button("💾 Save 20 to 50 Log", type="primary", use_container_width=True, disabled=(row_sums > 5).any()):
                     raw_json = edited_df.to_dict(orient='records')
-                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "20 to 50", "score_primary": pct_6ft, "raw_data": raw_json, "week_number": current_week}
+                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "20 to 50", "score_primary": pct_6ft, "raw_data": raw_json, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     del st.session_state['df_2050_matrix']
@@ -1042,8 +1052,13 @@ else:
                 
                 holes_played = st.number_input("Total Holes Played (Survived)", min_value=0, value=9, step=1)
                 
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_sg_6ft")
+                st.write("<br>", unsafe_allow_html=True)
+
                 if st.button("💾 Save 6ft Game Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "6ft Game", "score_primary": holes_played, "week_number": current_week}
+                    data = {"user_name": st.session_state.current_user, "game_category": "Short Game", "game_name": "6ft Game", "score_primary": holes_played, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     st.session_state.mode_sg_6ft = "grid"
@@ -1082,8 +1097,13 @@ else:
                 
                 score = st.number_input("Best Streak (Max Consecutive Putts)", min_value=0, value=5, step=1)
                 
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_pace")
+                st.write("<br>", unsafe_allow_html=True)
+
                 if st.button("💾 Save Pace Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "Pace", "score_primary": score, "week_number": current_week}
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "Pace", "score_primary": score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     st.session_state.mode_putt_pace = "grid"
@@ -1110,8 +1130,13 @@ else:
                 
                 total_putts = st.number_input("Total Putts Taken to Reach 50ft", min_value=5, value=15, step=1)
                 
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_6912")
+                st.write("<br>", unsafe_allow_html=True)
+
                 if st.button("💾 Save 6-9-12 Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "6-9-12", "score_primary": total_putts, "week_number": current_week}
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "6-9-12", "score_primary": total_putts, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     st.session_state.mode_putt_6912 = "grid"
@@ -1138,8 +1163,13 @@ else:
                 
                 attempts = st.number_input("Total Putts Hit to Complete Ladder", min_value=7, value=15, step=1)
                 
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_28")
+                st.write("<br>", unsafe_allow_html=True)
+
                 if st.button("💾 Save 2-8 Drill Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "2-8 Drill", "score_primary": attempts, "week_number": current_week}
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "2-8 Drill", "score_primary": attempts, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     st.session_state.mode_putt_28 = "grid"
