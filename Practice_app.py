@@ -53,13 +53,11 @@ st.markdown("""
     }
 
     /* ==================================================
-       SURGICAL MENU FIX (ONLY TARGETS THE LEFT BUTTON)
+       THE BULLETPROOF MENU FIX (EXCLUSION METHOD)
        ================================================== */
 
-    /* 1. Target the button INSIDE the Streamlit sidebar wrapper */
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="stCollapsedControl"] button {
+    /* 1. Turn EVERY button in the top header into a blue MENU button */
+    header button {
         background-color: #0068C9 !important; /* Premium Blue */
         border-radius: 6px !important;
         padding: 8px 14px !important;
@@ -71,28 +69,47 @@ st.markdown("""
         align-items: center !important;
         justify-content: center !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-        visibility: visible !important;
         color: white !important;
     }
 
-    /* 2. Kill the original SVG arrows inside THAT specific button */
-    [data-testid="collapsedControl"] svg,
-    [data-testid="stSidebarCollapsedControl"] button svg,
-    [data-testid="stCollapsedControl"] button svg {
+    /* Hide their original icons */
+    header button svg {
         display: none !important;
     }
 
-    /* 3. Inject the ☰ MENU text */
-    [data-testid="collapsedControl"]::after,
-    [data-testid="stSidebarCollapsedControl"] button::after,
-    [data-testid="stCollapsedControl"] button::after {
+    /* Inject the ☰ MENU text */
+    header button::after {
         content: "☰ MENU" !important;
         font-family: 'Montserrat', sans-serif !important;
         color: white !important;
         font-weight: 800 !important;
         font-size: 14px !important;
-        visibility: visible !important;
         display: block !important;
+    }
+
+    /* 2. REVERT the styling for the developer tools on the right side */
+    [data-testid="stHeaderActions"] button,
+    [data-testid="stToolbar"] button,
+    [data-testid="stActionElements"] button {
+        background-color: transparent !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0.25rem !important;
+        color: inherit !important;
+    }
+
+    /* Bring their original icons back */
+    [data-testid="stHeaderActions"] button svg,
+    [data-testid="stToolbar"] button svg,
+    [data-testid="stActionElements"] button svg {
+        display: block !important;
+    }
+
+    /* Remove the MENU text from the right side */
+    [data-testid="stHeaderActions"] button::after,
+    [data-testid="stToolbar"] button::after,
+    [data-testid="stActionElements"] button::after {
+        display: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
