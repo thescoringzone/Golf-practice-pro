@@ -53,16 +53,13 @@ st.markdown("""
     }
 
     /* ==================================================
-       THE GUARANTEED MENU FIX
+       SURGICAL MENU FIX (ONLY TARGETS THE LEFT BUTTON)
        ================================================== */
 
-    /* 1. Hide ALL the developer buttons on the right side safely */
-    [data-testid="stHeaderActions"] {
-        display: none !important;
-    }
-
-    /* 2. Style the ONLY remaining button in the header (The Sidebar Toggle) */
-    header button {
+    /* 1. Target the button INSIDE the Streamlit sidebar wrapper */
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="stCollapsedControl"] button {
         background-color: #0068C9 !important; /* Premium Blue */
         border-radius: 6px !important;
         padding: 8px 14px !important;
@@ -75,15 +72,20 @@ st.markdown("""
         justify-content: center !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
         visibility: visible !important;
+        color: white !important;
     }
 
-    /* 3. Kill the original SVG arrows inside that button */
-    header button svg {
+    /* 2. Kill the original SVG arrows inside THAT specific button */
+    [data-testid="collapsedControl"] svg,
+    [data-testid="stSidebarCollapsedControl"] button svg,
+    [data-testid="stCollapsedControl"] button svg {
         display: none !important;
     }
 
-    /* 4. Inject the ☰ MENU text */
-    header button::after {
+    /* 3. Inject the ☰ MENU text */
+    [data-testid="collapsedControl"]::after,
+    [data-testid="stSidebarCollapsedControl"] button::after,
+    [data-testid="stCollapsedControl"] button::after {
         content: "☰ MENU" !important;
         font-family: 'Montserrat', sans-serif !important;
         color: white !important;
