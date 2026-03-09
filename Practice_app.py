@@ -53,14 +53,21 @@ st.markdown("""
     }
 
     /* ==================================================
-       STATIC FOOLPROOF MENU BUTTON
+       UX UPGRADE: TRUE NATIVE APP FEEL
        ================================================== */
 
-    /* Target the exact button container with a wider net */
+    /* 1. Hide the clunky Streamlit top-right developer toolbar (Share, Star, Fork) */
+    [data-testid="stToolbar"],
+    [data-testid="stHeaderActions"],
+    [data-testid="stAppDeployButton"] {
+        display: none !important;
+    }
+
+    /* 2. Target the exact top-left Sidebar Toggle Button */
     [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"],
-    button[kind="header"] {
-        background-color: #0068C9 !important;
+    [data-testid="stCollapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {
+        background-color: #0068C9 !important; /* Premium Blue */
         border-radius: 6px !important;
         margin: 10px !important;
         padding: 8px 14px !important;
@@ -70,19 +77,20 @@ st.markdown("""
         align-items: center !important;
         justify-content: center !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+        z-index: 999999 !important;
     }
 
-    /* Kill the original SVG arrows */
+    /* Kill the original SVG double-arrows */
     [data-testid="collapsedControl"] svg,
-    [data-testid="stSidebarCollapsedControl"] svg,
-    button[kind="header"] svg {
+    [data-testid="stCollapsedControl"] svg,
+    [data-testid="stSidebarCollapsedControl"] svg {
         display: none !important;
     }
 
-    /* Force the MENU text to appear */
+    /* Force the big ☰ MENU text to appear */
     [data-testid="collapsedControl"]::before,
-    [data-testid="stSidebarCollapsedControl"]::before,
-    button[kind="header"]::before {
+    [data-testid="stCollapsedControl"]::before,
+    [data-testid="stSidebarCollapsedControl"]::before {
         content: "☰ MENU" !important;
         font-family: 'Montserrat', sans-serif !important;
         color: white !important;
