@@ -852,7 +852,7 @@ else:
 
             st.divider()
             
-            today_date = datetime.date.today()
+            today_date = get_local_time_info()[0].date()
             monday_date = today_date - datetime.timedelta(days=today_date.weekday())
             pr_session_date = st.date_input("Date of Round", value=today_date, min_value=monday_date, max_value=today_date, key="date_pr_master")
             st.write("<br>", unsafe_allow_html=True)
@@ -968,7 +968,7 @@ else:
                 st.divider()
                 st.metric("🎯 Final Average Score", f"{final_score:.1f}")
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_10shot")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1007,7 +1007,7 @@ else:
                 st.divider()
                 st.metric("⚡ Final Speed Score (SS/BS)", f"{ss:.0f} / {bs:.0f}")
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_ssbs")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1062,7 +1062,7 @@ else:
                 final_score = total_score / total_shots
                 st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_oc")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1093,7 +1093,7 @@ else:
                 
                 sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1)
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_tm")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1148,7 +1148,7 @@ else:
                 final_score = total_score / total_shots
                 st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szm_oc")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1179,7 +1179,7 @@ else:
                 
                 sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1, key="szm_sg")
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szm_tm")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1234,7 +1234,7 @@ else:
                 final_score = total_score / total_shots
                 st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szs_oc")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1265,7 +1265,7 @@ else:
                 
                 total_attempts = st.number_input("Total Shots Taken to Complete", min_value=11, value=15, step=1)
 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szs_tm")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1316,7 +1316,7 @@ else:
                 
                 final_score = st.number_input("Final Strokes Taken", min_value=9, value=21, step=1)
                 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_sg_par21")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1387,7 +1387,7 @@ else:
                 st.divider()
                 st.metric("🎯 Final Combined Score (6ft Accuracy)", f"{pct_6ft:.0f}%")
                 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_sg_2050")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1421,7 +1421,7 @@ else:
                 
                 holes_played = st.number_input("Total Holes Played (Survived)", min_value=0, value=9, step=1)
                 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_sg_6ft")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1472,7 +1472,7 @@ else:
                 
                 score = st.number_input("Best Streak (Max Consecutive Putts)", min_value=0, value=5, step=1)
                 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_pace")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1504,7 +1504,7 @@ else:
                 
                 total_putts = st.number_input("Total Putts Taken to Reach 50ft", min_value=5, value=15, step=1)
                 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_6912")
                 st.write("<br>", unsafe_allow_html=True)
@@ -1536,7 +1536,7 @@ else:
                 
                 attempts = st.number_input("Total Putts Hit to Complete Ladder", min_value=7, value=15, step=1)
                 
-                today_date = datetime.date.today()
+                today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
                 session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_28")
                 st.write("<br>", unsafe_allow_html=True)
