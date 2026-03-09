@@ -132,15 +132,13 @@ def load_all_logs(username):
             df['raw_data'] = df['raw_data'].apply(lambda x: x if isinstance(x, dict) else (json.loads(x) if isinstance(x, str) else {}))
             
         # --- CREATIVE WORKAROUND: THE AUTO-TRANSLATOR ---
-        # This silently updates your old "On-Course" labels to the new "Situational" ones 
-        # in memory so they show up everywhere without needing to alter your actual database.
-        legacy_mapping = {
-            "On-Course 150-200": "Situational Practice 150-200",
-            "On-Course 100-150": "Situational Practice 100-150",
-            "On-Course 50-100": "Situational Practice 50-100"
-        }
+        # 1. Fix old Practice Round categories 
+        if 'game_category' in df.columns:
+            df['game_category'] = df['game_category'].replace({"On-Course": "Practice Rounds"})
+            
+        # 2. Broadly sweep and rename all "On-Course" situational games
         if 'game_name' in df.columns:
-            df['game_name'] = df['game_name'].replace(legacy_mapping)
+            df['game_name'] = df['game_name'].apply(lambda x: str(x).replace('On-Course', 'Situational Practice') if isinstance(x, str) else x)
             
         return df
     else:
@@ -294,30 +292,30 @@ else:
     # ==========================================
     # PAGE: WEEKLY DASHBOARD
     # ==========================================
-    if st.session_state.page == "Weekly Dashboard":
+    elif st.session_state.page == "Weekly Dashboard":
         st.title("📊 Weekly Dashboard")
         st.write("Track your practice completion and download your weekly reports.")
         
+        # --- CREATIVE WORKAROUND: DYNAMIC TIME ENGINE ---
+        # We ignore Supabase's saved 'week_number' entirely to avoid timezone bugs.
+        # We force Pandas to calculate the True Week directly from the calendar date on the fly.
         df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce', utc=True)
-        df_logs['Year'] = df_logs['created_at'].dt.isocalendar().year
-        df_logs['week_number'] = pd.to_numeric(df_logs['week_number'], errors='coerce').fillna(-1).astype(int)
+        df_logs['True_Week'] = df_logs['created_at'].dt.isocalendar().week.fillna(current_week).astype(int)
+        df_logs['True_Year'] = df_logs['created_at'].dt.isocalendar().year.fillna(current_year).astype(int)
         
-        current_year = int(current_year)
-        current_week = int(current_week)
-        
-        logged_weeks = sorted(df_logs[df_logs['week_number'] > 0]['week_number'].unique().tolist(), reverse=True)
+        logged_weeks = sorted(df_logs['True_Week'].unique().tolist(), reverse=True)
         if current_week not in logged_weeks:
             logged_weeks.insert(0, current_week)
             
         col_w1, col_w2 = st.columns([1, 3])
         selected_week = col_w1.selectbox("📅 Select Week to View", logged_weeks, index=logged_weeks.index(current_week), key="dash_week_selector")
-        selected_week = int(selected_week)
         
-        df_cw = df_logs[(df_logs['week_number'] == selected_week) & (df_logs['Year'] == current_year)].copy()
+        # Now we filter strictly by our bulletproof dynamic columns
+        df_cw = df_logs[(df_logs['True_Week'] == selected_week) & (df_logs['True_Year'] == current_year)].copy()
         
         lw_week = selected_week - 1 if selected_week > 1 else 52
         lw_year = current_year if selected_week > 1 else current_year - 1
-        df_lw = df_logs[(df_logs['week_number'] == lw_week) & (df_logs['Year'] == lw_year)].copy()
+        df_lw = df_logs[(df_logs['True_Week'] == lw_week) & (df_logs['True_Year'] == lw_year)].copy()
         
         combine_structure = {
             "Practice Rounds": ["Straight up", "5m game", "10m game"],
