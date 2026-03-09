@@ -53,46 +53,48 @@ st.markdown("""
     }
 
     /* ==================================================
-       FOOLPROOF MENU BUTTON FOR DIGITALLY ILLITERATE USERS
+       FOOLPROOF MENU BUTTON (THE NUCLEAR OPTION)
        ================================================== */
        
-    /* 1. Add a gentle pulsing animation to draw the eye */
     @keyframes menuPulse {
         0% { box-shadow: 0 0 0 0 rgba(0, 104, 201, 0.6); }
         70% { box-shadow: 0 0 0 12px rgba(0, 104, 201, 0); }
         100% { box-shadow: 0 0 0 0 rgba(0, 104, 201, 0); }
     }
 
-    /* 2. Target the exact double-arrow control and turn it into a massive button */
-    [data-testid="collapsedControl"] {
+    /* Target ALL possible Streamlit sidebar identifiers */
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {
         background-color: #0068C9 !important; /* Premium Blue */
         color: white !important;
-        border-radius: 0 8px 8px 0 !important; /* Rounded on the right side */
-        padding: 5px 15px 5px 5px !important;
-        margin-top: 10px !important;
-        animation: menuPulse 2s infinite !important; /* Apply the pulse */
+        border-radius: 0 8px 8px 0 !important;
+        padding: 8px 16px !important;
+        margin-top: 15px !important;
+        animation: menuPulse 2s infinite !important;
         z-index: 999999 !important;
+        opacity: 1 !important;
+        width: auto !important;
         display: flex !important;
         align-items: center !important;
+        justify-content: center !important;
     }
 
-    /* 3. Make the arrows themselves white and slightly larger */
-    [data-testid="collapsedControl"] svg {
-        fill: white !important;
+    /* Hide the ugly default gray arrows completely */
+    [data-testid="collapsedControl"] svg,
+    [data-testid="stSidebarCollapsedControl"] svg {
+        display: none !important;
+    }
+
+    /* Inject a beautiful "Hamburger Menu" icon and the word MENU */
+    [data-testid="collapsedControl"]::after,
+    [data-testid="stSidebarCollapsedControl"]::after {
+        content: "☰ MENU" !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 800 !important;
+        font-size: 14px !important;
         color: white !important;
-        width: 28px !important;
-        height: 28px !important;
-    }
-
-    /* 4. Magically inject the word "MENU" next to the arrows */
-    [data-testid="collapsedControl"]::after {
-        content: "MENU";
-        font-family: 'Montserrat', sans-serif;
-        font-weight: 800;
-        font-size: 14px;
-        color: white;
-        margin-left: 4px;
-        letter-spacing: 1px;
+        letter-spacing: 1px !important;
+        display: block !important;
     }
     </style>
 """, unsafe_allow_html=True)
