@@ -302,6 +302,7 @@ else:
         df_lw = df_logs[(df_logs['created_at'].dt.isocalendar().week == lw_week) & (df_logs['created_at'].dt.year == lw_year)].copy()
         
         combine_structure = {
+            "Practice Rounds": ["Straight up", "5m game", "10m game"],
             "Driving": ["10 Shot", "Max SS/BS"],
             "Scoring Zone Long": ["On-Course 150-200", "TM 150-200"],
             "Scoring Zone Mid": ["On-Course 100-150", "TM 100-150"],
@@ -337,8 +338,9 @@ else:
                     col1.write(f"{game_icon}  {display_game}")
                     
                     if col2.button("Practice ➡️", key=f"nav_{cat}_{game}_{selected_week}", use_container_width=True):
-                        st.session_state.page = cat
-                        if cat == "Driving": st.session_state.driving_radio = game
+                        st.session_state.page = cat # No need for special logic here anymore!
+                        if cat == "Practice Rounds": st.session_state.pr_game_select = game
+                        elif cat == "Driving": st.session_state.driving_radio = game
                         elif cat == "Scoring Zone Long": st.session_state.szl_radio = game
                         elif cat == "Scoring Zone Mid": st.session_state.szm_radio = game
                         elif cat == "Scoring Zone Short": st.session_state.szs_radio = game
@@ -558,15 +560,18 @@ else:
     # ==========================================
     elif st.session_state.page == "Practice Rounds":
         st.title("⛳ Practice Rounds")
-        st.write("*Log your on-course situational games. Fill out all tabs to create a complete post-round debrief.*")
         
-        # --- GAME SELECTION ---
+        # 1. State Management
+        if 'mode_pr' not in st.session_state: st.session_state.mode_pr = "grid"
+        if 'pr_game_select' not in st.session_state: st.session_state.pr_game_select = "Straight up"
+        
+        # 2. Game Selection
         st.subheader("1. Select Your Game Format")
-        pr_game = st.selectbox(
-            "Game Type", 
-            ["Straight up", "5m game", "10m game"], 
-            label_visibility="collapsed"
-        )
+        game_options = ["Straight up", "5m game", "10m game"]
+        default_idx = game_options.index(st.session_state.pr_game_select) if st.session_state.pr_game_select in game_options else 0
+        
+        pr_game = st.selectbox("Game Type", game_options, index=default_idx, label_visibility="collapsed")
+        st.session_state.pr_game_select = pr_game
         
         if pr_game == "Straight up":
             st.info("**Straight up:** A normal 9 or 18 hole round.")
@@ -575,163 +580,180 @@ else:
         elif pr_game == "10m game":
             st.info("**10m game:** On all odd holes, place your drive in a position 10m worse than the original position, either through rough/bunker lies or distance from the hole. On all even holes, place your approach shot in a position 10m worse than the original position in-line with the hole.")
 
-        st.divider()
-        st.subheader("2. Post-Round Debrief Data")
-        
-        # --- THE MULTI-TAB FORM ---
-        tab_oc, tab_drv, tab_sz, tab_sg, tab_putt = st.tabs([
-            "🚩 On-Course", "🚀 Driving", "🎯 Scoring Zone", "🪤 Short Game", "⛳ Putting"
-        ])
-        
-        with tab_oc:
-            st.write("### Round Overview")
-            c1, c2, c3 = st.columns(3)
-            pr_holes = c1.radio("Holes Played", [9, 18], horizontal=True)
-            pr_gross = c2.number_input("Gross Score", min_value=20, max_value=150, value=72, step=1)
-            pr_to_par = c3.number_input("Score to Par (e.g., -2 or +3)", value=0, step=1)
+        # 3. View Mode: GRID (Shows past rounds)
+        if st.session_state.mode_pr == "grid":
+            if st.button("➕ Log New Practice Round", key="new_pr", type="primary"):
+                st.session_state.mode_pr = "entry"
+                st.rerun()
+            st.divider()
             
-            st.write("### Approach Accuracy")
-            c4, c5 = st.columns(2)
-            pr_gir_total = c4.number_input("Total GIR Hit", min_value=0, max_value=18, value=9, step=1)
-            pr_gir_5m = c5.number_input("GIR Inside 5m", min_value=0, max_value=18, value=4, step=1)
-
-        with tab_drv:
-            st.write("### Tee Shot Accuracy")
-            c1, c2 = st.columns(2)
-            pr_fw_hit = c1.number_input("Fairways Hit", min_value=0, max_value=18, value=7, step=1)
-            pr_tee_shots = c2.number_input("Total Tee Shots Hit", min_value=1, max_value=18, value=14, step=1)
-
-        with tab_sz:
-            st.write("### Approach Shot Breakdown")
+            df_pr = df_logs[(df_logs['game_category'] == "Practice Rounds") & (df_logs['game_name'] == pr_game)]
+            render_icon_grid(df_pr, pr_game)
             
-            st.markdown("**150-200 Yards**")
-            col_l1, col_l2 = st.columns(2)
-            pr_szl_score = col_l1.number_input("Score to Par (150-200)", value=0, step=1, key="pr_szl_s")
-            pr_szl_shots = col_l2.number_input("Shots Recorded (150-200)", min_value=0, value=5, step=1, key="pr_szl_n")
+        # 4. View Mode: ENTRY FORM (The multi-tab data entry)
+        elif st.session_state.mode_pr == "entry":
+            if st.button("🔙 Back to Previous Entries", key="back_pr"):
+                st.session_state.mode_pr = "grid"
+                st.rerun()
+            st.divider()
             
-            st.markdown("**100-150 Yards**")
-            col_m1, col_m2 = st.columns(2)
-            pr_szm_score = col_m1.number_input("Score to Par (100-150)", value=0, step=1, key="pr_szm_s")
-            pr_szm_shots = col_m2.number_input("Shots Recorded (100-150)", min_value=0, value=5, step=1, key="pr_szm_n")
+            st.subheader("2. Post-Round Debrief Data")
             
-            st.markdown("**50-100 Yards**")
-            col_s1, col_s2 = st.columns(2)
-            pr_szs_score = col_s1.number_input("Score to Par (50-100)", value=0, step=1, key="pr_szs_s")
-            pr_szs_shots = col_s2.number_input("Shots Recorded (50-100)", min_value=0, value=5, step=1, key="pr_szs_n")
-
-        with tab_sg:
-            st.write("### Around the Green")
-            c1, c2 = st.columns(2)
-            pr_sg_total = c1.number_input("Total Short Game Shots Taken", min_value=0, value=8, step=1)
-            pr_sg_updown = c2.number_input("Successful Up & Downs", min_value=0, value=4, step=1)
+            tab_oc, tab_drv, tab_sz, tab_sg, tab_putt = st.tabs([
+                "🚩 On-Course", "🚀 Driving", "🎯 Scoring Zone", "🪤 Short Game", "⛳ Putting"
+            ])
             
-            st.write("### Proximity")
-            c3, c4 = st.columns(2)
-            pr_sg_6ft = c3.number_input("Shots Inside 6ft", min_value=0, value=3, step=1)
-            pr_sg_3ft = c4.number_input("Shots Inside 3ft", min_value=0, value=1, step=1)
-
-        with tab_putt:
-            st.write("### Putting Performance")
-            putt_mode = st.radio("Input Method:", ["Hole-by-Hole Calculator", "Manual Tour Data Entry"], horizontal=True)
-
-            pr_total_putts = 0
-            pr_sg_putting = 0.0
-            putting_holes_data = []
-
-            if putt_mode == "Manual Tour Data Entry":
-                col_m1, col_m2 = st.columns(2)
-                pr_total_putts = col_m1.number_input("Total Putts", min_value=0, max_value=100, value=30, step=1)
-                pr_sg_putting = col_m2.number_input("Total SG Putting", value=0.0, step=0.1)
-            else:
-                metric_cols = st.columns(2)
-                m_putts = metric_cols[0].empty()
-                m_sg = metric_cols[1].empty()
-                st.caption("Slide to select distance, tap to select putts (0 = Not Played).")
-
-                with st.expander("⛳ Front 9", expanded=True):
-                    for i in range(9):
-                        with st.container(border=True):
-                            st.markdown(f"**Hole {i+1}**")
-                            c1, c2 = st.columns([3, 2])
-                            dist = c1.slider(f"Hole {i+1} Dist", 0, 100, 0, key=f"dist_pr_{i}", label_visibility="collapsed")
-                            putts = c2.radio(f"Hole {i+1} Putts", [0, 1, 2, 3, 4], index=0, horizontal=True, key=f"putts_pr_{i}", label_visibility="collapsed")
-                            putting_holes_data.append({"Hole": f"Hole {i+1}", "Distance (ft)": dist, "Putts": putts})
+            with tab_oc:
+                st.write("### Round Overview")
+                c1, c2, c3 = st.columns(3)
+                pr_holes = c1.radio("Holes Played", [9, 18], horizontal=True)
+                pr_gross = c2.number_input("Gross Score", min_value=20, max_value=150, value=72, step=1)
+                pr_to_par = c3.number_input("Score to Par (e.g., -2 or +3)", value=0, step=1)
                 
-                if pr_holes == 18:
-                    with st.expander("⛳ Back 9", expanded=False):
-                        for i in range(9, 18):
+                st.write("### Approach Accuracy")
+                c4, c5 = st.columns(2)
+                pr_gir_total = c4.number_input("Total GIR Hit", min_value=0, max_value=18, value=9, step=1)
+                pr_gir_5m = c5.number_input("GIR Inside 5m", min_value=0, max_value=18, value=4, step=1)
+
+            with tab_drv:
+                st.write("### Tee Shot Accuracy")
+                c1, c2 = st.columns(2)
+                pr_fw_hit = c1.number_input("Fairways Hit", min_value=0, max_value=18, value=7, step=1)
+                pr_tee_shots = c2.number_input("Total Tee Shots Hit", min_value=1, max_value=18, value=14, step=1)
+
+            with tab_sz:
+                st.write("### Approach Shot Breakdown")
+                
+                st.markdown("**150-200 Yards**")
+                col_l1, col_l2 = st.columns(2)
+                pr_szl_score = col_l1.number_input("Score to Par (150-200)", value=0, step=1, key="pr_szl_s")
+                pr_szl_shots = col_l2.number_input("Shots Recorded (150-200)", min_value=0, value=5, step=1, key="pr_szl_n")
+                
+                st.markdown("**100-150 Yards**")
+                col_m1, col_m2 = st.columns(2)
+                pr_szm_score = col_m1.number_input("Score to Par (100-150)", value=0, step=1, key="pr_szm_s")
+                pr_szm_shots = col_m2.number_input("Shots Recorded (100-150)", min_value=0, value=5, step=1, key="pr_szm_n")
+                
+                st.markdown("**50-100 Yards**")
+                col_s1, col_s2 = st.columns(2)
+                pr_szs_score = col_s1.number_input("Score to Par (50-100)", value=0, step=1, key="pr_szs_s")
+                pr_szs_shots = col_s2.number_input("Shots Recorded (50-100)", min_value=0, value=5, step=1, key="pr_szs_n")
+
+            with tab_sg:
+                st.write("### Around the Green")
+                c1, c2 = st.columns(2)
+                pr_sg_total = c1.number_input("Total Short Game Shots Taken", min_value=0, value=8, step=1)
+                pr_sg_updown = c2.number_input("Successful Up & Downs", min_value=0, value=4, step=1)
+                
+                st.write("### Proximity")
+                c3, c4 = st.columns(2)
+                pr_sg_6ft = c3.number_input("Shots Inside 6ft", min_value=0, value=3, step=1)
+                pr_sg_3ft = c4.number_input("Shots Inside 3ft", min_value=0, value=1, step=1)
+
+            with tab_putt:
+                st.write("### Putting Performance")
+                putt_mode = st.radio("Input Method:", ["Hole-by-Hole Calculator", "Manual Tour Data Entry"], horizontal=True)
+
+                pr_total_putts = 0
+                pr_sg_putting = 0.0
+                putting_holes_data = []
+
+                if putt_mode == "Manual Tour Data Entry":
+                    col_m1, col_m2 = st.columns(2)
+                    pr_total_putts = col_m1.number_input("Total Putts", min_value=0, max_value=100, value=30, step=1)
+                    pr_sg_putting = col_m2.number_input("Total SG Putting", value=0.0, step=0.1)
+                else:
+                    metric_cols = st.columns(2)
+                    m_putts = metric_cols[0].empty()
+                    m_sg = metric_cols[1].empty()
+                    st.caption("Slide to select distance, tap to select putts (0 = Not Played).")
+
+                    with st.expander("⛳ Front 9", expanded=True):
+                        for i in range(9):
                             with st.container(border=True):
                                 st.markdown(f"**Hole {i+1}**")
                                 c1, c2 = st.columns([3, 2])
                                 dist = c1.slider(f"Hole {i+1} Dist", 0, 100, 0, key=f"dist_pr_{i}", label_visibility="collapsed")
                                 putts = c2.radio(f"Hole {i+1} Putts", [0, 1, 2, 3, 4], index=0, horizontal=True, key=f"putts_pr_{i}", label_visibility="collapsed")
                                 putting_holes_data.append({"Hole": f"Hole {i+1}", "Distance (ft)": dist, "Putts": putts})
+                    
+                    if pr_holes == 18:
+                        with st.expander("⛳ Back 9", expanded=False):
+                            for i in range(9, 18):
+                                with st.container(border=True):
+                                    st.markdown(f"**Hole {i+1}**")
+                                    c1, c2 = st.columns([3, 2])
+                                    dist = c1.slider(f"Hole {i+1} Dist", 0, 100, 0, key=f"dist_pr_{i}", label_visibility="collapsed")
+                                    putts = c2.radio(f"Hole {i+1} Putts", [0, 1, 2, 3, 4], index=0, horizontal=True, key=f"putts_pr_{i}", label_visibility="collapsed")
+                                    putting_holes_data.append({"Hole": f"Hole {i+1}", "Distance (ft)": dist, "Putts": putts})
 
-                for row in putting_holes_data:
-                    d = row["Distance (ft)"]
-                    p = row["Putts"]
-                    if p > 0: 
-                        pr_total_putts += p
-                    if d > 0 and p > 0: 
-                        pr_sg_putting += (get_expected_putts(d) - p)
-                        
-                m_putts.metric("Total Putts", pr_total_putts)
-                m_sg.metric("Total SG Putting", f"{pr_sg_putting:+.2f}")
+                    for row in putting_holes_data:
+                        d = row["Distance (ft)"]
+                        p = row["Putts"]
+                        if p > 0: 
+                            pr_total_putts += p
+                        if d > 0 and p > 0: 
+                            pr_sg_putting += (get_expected_putts(d) - p)
+                            
+                    m_putts.metric("Total Putts", pr_total_putts)
+                    m_sg.metric("Total SG Putting", f"{pr_sg_putting:+.2f}")
+
+                st.divider()
+                st.write("**Lag Putting (18ft+)**")
+                c1, c2 = st.columns(2)
+                pr_lag_total = c1.number_input("Total Lag Putts Taken", min_value=0, value=6, step=1)
+                pr_lag_success = c2.number_input("Lag Putts Finished Inside 1 Putter Length", min_value=0, value=5, step=1)
 
             st.divider()
-            st.write("**Lag Putting (18ft+)**")
-            c1, c2 = st.columns(2)
-            pr_lag_total = c1.number_input("Total Lag Putts Taken", min_value=0, value=6, step=1)
-            pr_lag_success = c2.number_input("Lag Putts Finished Inside 1 Putter Length", min_value=0, value=5, step=1)
-
-        st.divider()
-        
-        # --- SAVE MASTER FORM ---
-        today_date = datetime.date.today()
-        monday_date = today_date - datetime.timedelta(days=today_date.weekday())
-        pr_session_date = st.date_input("Date of Round", value=today_date, min_value=monday_date, max_value=today_date, key="date_pr")
-        st.write("<br>", unsafe_allow_html=True)
-        
-        if st.button("💾 Save Practice Round", type="primary", use_container_width=True):
-            pr_raw_data = {
-                "holes_played": pr_holes,
-                "gross_score": pr_gross,
-                "score_to_par": pr_to_par,
-                "gir_total": pr_gir_total,
-                "gir_inside_5m": pr_gir_5m,
-                "driving": {"fairways_hit": pr_fw_hit, "tee_shots": pr_tee_shots},
-                "scoring_zone": {
-                    "szl_score": pr_szl_score, "szl_shots": pr_szl_shots,
-                    "szm_score": pr_szm_score, "szm_shots": pr_szm_shots,
-                    "szs_score": pr_szs_score, "szs_shots": pr_szs_shots
-                },
-                "short_game": {
-                    "total_shots": pr_sg_total,
-                    "up_and_downs": pr_sg_updown,
-                    "inside_6ft": pr_sg_6ft,
-                    "inside_3ft": pr_sg_3ft
-                },
-                "putting": {
-                    "sg_putting": round(pr_sg_putting, 2),
-                    "total_putts": pr_total_putts,
-                    "lag_putts_total": pr_lag_total,
-                    "lag_putts_success": pr_lag_success,
-                    "hole_by_hole_data": putting_holes_data
+            
+            # --- SAVE MASTER FORM ---
+            today_date = datetime.date.today()
+            monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+            pr_session_date = st.date_input("Date of Round", value=today_date, min_value=monday_date, max_value=today_date, key="date_pr")
+            st.write("<br>", unsafe_allow_html=True)
+            
+            if st.button("💾 Save Practice Round", type="primary", use_container_width=True):
+                pr_raw_data = {
+                    "holes_played": pr_holes,
+                    "gross_score": pr_gross,
+                    "score_to_par": pr_to_par,
+                    "gir_total": pr_gir_total,
+                    "gir_inside_5m": pr_gir_5m,
+                    "driving": {"fairways_hit": pr_fw_hit, "tee_shots": pr_tee_shots},
+                    "scoring_zone": {
+                        "szl_score": pr_szl_score, "szl_shots": pr_szl_shots,
+                        "szm_score": pr_szm_score, "szm_shots": pr_szm_shots,
+                        "szs_score": pr_szs_score, "szs_shots": pr_szs_shots
+                    },
+                    "short_game": {
+                        "total_shots": pr_sg_total,
+                        "up_and_downs": pr_sg_updown,
+                        "inside_6ft": pr_sg_6ft,
+                        "inside_3ft": pr_sg_3ft
+                    },
+                    "putting": {
+                        "sg_putting": round(pr_sg_putting, 2),
+                        "total_putts": pr_total_putts,
+                        "lag_putts_total": pr_lag_total,
+                        "lag_putts_success": pr_lag_success,
+                        "hole_by_hole_data": putting_holes_data
+                    }
                 }
-            }
-            
-            data = {
-                "user_name": st.session_state.current_user, 
-                "game_category": "On-Course", 
-                "game_name": pr_game, 
-                "score_primary": pr_to_par, 
-                "raw_data": pr_raw_data, 
-                "week_number": current_week, 
-                "created_at": f"{pr_session_date}T12:00:00Z"
-            }
-            
-            supabase.table("practice_logs").insert(data).execute()
-            st.success(f"{pr_game} Practice Round Successfully Logged! Check your Weekly Dashboard.")
+                
+                data = {
+                    "user_name": st.session_state.current_user, 
+                    "game_category": "Practice Rounds", 
+                    "game_name": pr_game, 
+                    "score_primary": pr_to_par, 
+                    "raw_data": pr_raw_data, 
+                    "week_number": current_week, 
+                    "created_at": f"{pr_session_date}T12:00:00Z"
+                }
+                
+                supabase.table("practice_logs").insert(data).execute()
+                st.success(f"{pr_game} Practice Round Successfully Logged! Check your Weekly Dashboard.")
+                st.session_state.mode_pr = "grid"
+                st.rerun()
             
     # ==========================================
     # PAGE: DRIVING
