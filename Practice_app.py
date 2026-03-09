@@ -314,12 +314,23 @@ else:
             st.dataframe(df_clean, hide_index=True, use_container_width=True)
             
         st.divider()
+
+        # ---------------------------------------------------------
+        # Weekly Reflections Inputs (Moved to the Top!)
+        # ---------------------------------------------------------
+        st.subheader("🧠 Weekly Reflections")
+        st.write("*Jot down your thoughts. They will be formatted onto the right-side of your PDF report.*")
+        col_ref1, col_ref2 = st.columns(2)
+        learnings_input = col_ref1.text_area("Learnings of the week", placeholder="What did you figure out? What needs work?", height=120)
+        successes_input = col_ref2.text_area("Successes of the week", placeholder="What went really well? Any PBs?", height=120)
+
+        st.divider()
         
         # ==========================================
         # THE CADDIE REPORT (LANDSCAPE PDF)
         # ==========================================
         st.subheader("📄 Your Weekly Caddie Report")
-        st.write("*Generate a 1-page Landscape PDF summary of your week.*")
+        st.write("*Download your 1-page Landscape PDF summary (includes your master data and the reflections above).*")
         
         report_data = []
         lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
@@ -363,18 +374,6 @@ else:
                     report_data.append([cat, game, avg_str, best_str, pct_str])
                     
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
-        df_display_ui = df_report.set_index(["Category", "Drill"])
-        st.dataframe(df_display_ui, use_container_width=True)
-
-        # ---------------------------------------------------------
-        # Weekly Reflections Inputs
-        # ---------------------------------------------------------
-        st.write("<br>", unsafe_allow_html=True)
-        st.subheader("🧠 Weekly Reflections")
-        st.write("*Jot down your thoughts. They will automatically be injected into your PDF report.*")
-        col_ref1, col_ref2 = st.columns(2)
-        learnings_input = col_ref1.text_area("Learnings of the week", placeholder="What did you figure out? What needs work?", height=120)
-        successes_input = col_ref2.text_area("Successes of the week", placeholder="What went really well? Any PBs?", height=120)
 
         # ---------------------------------------------------------
         # Landscape PDF Compilation Function
@@ -413,6 +412,7 @@ else:
                     pdf.ln(2) 
                     pdf.set_x(10)
                     
+                    # Category Header
                     pdf.set_font("Helvetica", "B", 10)
                     pdf.set_fill_color(41, 55, 70)
                     pdf.set_text_color(255, 255, 255)
@@ -426,6 +426,7 @@ else:
                         pdf.cell(col_widths[i], 6, headers[i], border=1, align="C", fill=True)
                     pdf.ln()
                 
+                # Data Rows
                 pdf.set_x(10)
                 pdf.set_font("Helvetica", "", 8)
                 pdf.set_text_color(0, 0, 0)
@@ -440,46 +441,57 @@ else:
                 pdf.set_text_color(0, 0, 0) 
                 pdf.ln()
 
-            # --- RIGHT PANE: TEXT BOXES (115mm wide) ---
-            pdf.set_y(start_y + 2)
-            right_x = 170
-            box_width = 115
+            # --- RIGHT PANE: TEXT BOXES (120mm wide, Fixed Vertical Height) ---
+            right_x = 165
+            box_width = 120
+            box_height = 70 # Mathematically set to push all the way to the footer
             
-            # Learnings
-            pdf.set_x(right_x)
+            # Box 1: Learnings
+            pdf.set_xy(right_x, start_y)
             pdf.set_font("Helvetica", "B", 12)
             pdf.set_text_color(41, 55, 70)
             pdf.cell(box_width, 8, "Learnings of the week", ln=1)
             
-            # Constrain text to the right side
-            original_l_margin = pdf.l_margin
-            pdf.set_left_margin(right_x)
+            # Draw empty boundary box
+            box1_y = pdf.get_y()
+            pdf.rect(right_x, box1_y, box_width, box_height)
             
+            # Insert text inside boundary
+            original_l_margin = pdf.l_margin
+            pdf.set_left_margin(right_x + 2)
+            pdf.set_xy(right_x + 2, box1_y + 2)
             pdf.set_font("Helvetica", "", 10)
             pdf.set_text_color(0, 0, 0)
-            l_final = l_text.strip() if l_text else "\n\n\n\n\n"
-            pdf.multi_cell(box_width, 6, l_final, border=1)
+            pdf.multi_cell(box_width - 4, 5, l_text.strip() if l_text else "")
             
-            pdf.ln(8)
+            # Box 2: Successes
+            pdf.set_left_margin(original_l_margin) # Reset margin to position header
+            success_start_y = box1_y + box_height + 4 # 4mm gap between boxes
             
-            # Successes
+            pdf.set_xy(right_x, success_start_y)
             pdf.set_font("Helvetica", "B", 12)
             pdf.set_text_color(41, 55, 70)
             pdf.cell(box_width, 8, "Successes of the week", ln=1)
             
+            # Draw empty boundary box
+            box2_y = pdf.get_y()
+            pdf.rect(right_x, box2_y, box_width, box_height)
+            
+            # Insert text inside boundary
+            pdf.set_left_margin(right_x + 2)
+            pdf.set_xy(right_x + 2, box2_y + 2)
             pdf.set_font("Helvetica", "", 10)
             pdf.set_text_color(0, 0, 0)
-            s_final = s_text.strip() if s_text else "\n\n\n\n\n"
-            pdf.multi_cell(box_width, 6, s_final, border=1)
+            pdf.multi_cell(box_width - 4, 5, s_text.strip() if s_text else "")
             
-            pdf.set_left_margin(original_l_margin) # Reset margin
+            pdf.set_left_margin(original_l_margin) # Final reset
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 pdf.output(tmp.name)
                 with open(tmp.name, "rb") as f:
                     return f.read()
 
-        # Download Button
+        # Download Button (Cleanly placed at the bottom)
         pdf_bytes = generate_pdf_report(df_report, current_week, current_year, st.session_state.current_user, learnings_input, successes_input)
         st.download_button(
             label="📄 Download Landscape Report",
