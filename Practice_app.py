@@ -301,6 +301,7 @@ else:
             
         df_lw = df_logs[(df_logs['created_at'].dt.isocalendar().week == lw_week) & (df_logs['created_at'].dt.year == lw_year)].copy()
         
+        # UPDATED DICTIONARY: Now specifically tracks "Practice Rounds"
         combine_structure = {
             "Practice Rounds": ["Straight up", "5m game", "10m game"],
             "Driving": ["10 Shot", "Max SS/BS"],
@@ -331,14 +332,13 @@ else:
                     is_game_complete = game in completed_games_this_week
                     game_icon = "✅" if is_game_complete else "⭕"
                     
-                    # --- TRANSLATION LAYER FOR UI CHECKLIST ---
                     display_game = game.replace("On-Course", "Situational Practice") if cat in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else game
                     
                     col1, col2 = st.columns([4, 1])
                     col1.write(f"{game_icon}  {display_game}")
                     
                     if col2.button("Practice ➡️", key=f"nav_{cat}_{game}_{selected_week}", use_container_width=True):
-                        st.session_state.page = cat # No need for special logic here anymore!
+                        st.session_state.page = cat
                         if cat == "Practice Rounds": st.session_state.pr_game_select = game
                         elif cat == "Driving": st.session_state.driving_radio = game
                         elif cat == "Scoring Zone Long": st.session_state.szl_radio = game
@@ -355,11 +355,20 @@ else:
             st.info("No practice logged for this week.")
         else:
             df_cw_sort = df_cw.sort_values('created_at', ascending=False)
-            df_display = df_cw_sort[['game_category', 'game_name', 'score_primary', 'score_secondary']].copy()
+            df_display = df_cw_sort[['game_category', 'game_name', 'score_primary', 'score_secondary', 'raw_data']].copy()
             
             def format_dashboard_score(row):
                 gn = row['game_name']
+                cat = row['game_category']
                 p = row['score_primary']
+                
+                # NEW LOGIC: Format Practice Rounds as "Gross (To Par)"
+                if cat == "Practice Rounds":
+                    raw = row['raw_data']
+                    gross = raw.get('gross_score', 0) if isinstance(raw, dict) else 0
+                    to_par_str = f"+{int(p)}" if p > 0 else ("E" if p == 0 else f"{int(p)}")
+                    return f"{int(gross)} ({to_par_str})"
+
                 s = row['score_secondary']
                 if gn == "Max SS/BS": return f"{p:.0f} / {s:.0f}"
                 elif gn in ["20 to 50"]: return f"{p:.0f}%"
@@ -367,8 +376,6 @@ else:
                 else: return f"{p:.2f}"
                 
             df_display['Score'] = df_display.apply(format_dashboard_score, axis=1)
-            
-            # --- TRANSLATION LAYER FOR LOG TABLE ---
             df_display['Drill'] = df_display.apply(lambda x: x['game_name'].replace("On-Course", "Situational Practice") if x['game_category'] in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else x['game_name'], axis=1)
             
             df_clean = df_display[['Drill', 'Score']]
@@ -584,17 +591,10 @@ else:
 
         # 3. View Mode: GRID (Shows past rounds & Edit logic)
         if st.session_state.mode_pr == "grid":
-            col1, col2 = st.columns(2)
-            if col1.button("➕ Log New Practice Round", key="new_pr", type="primary", use_container_width=True):
+            if st.button("➕ Log New Practice Round", key="new_pr", type="primary"):
                 st.session_state.edit_pr_id = None
                 st.session_state.edit_pr_data = {}
                 st.session_state.mode_pr = "entry"
-                st.rerun()
-                
-            # TEMPORARY BUTTON: Click this once to fix your missing data from earlier!
-            if col2.button("🔧 Fix Missing Old Round Data", use_container_width=True):
-                supabase.table("practice_logs").update({"game_category": "Practice Rounds"}).eq("game_category", "On-Course").execute()
-                st.success("Fixed! Refreshing...")
                 st.rerun()
                 
             st.divider()
