@@ -559,14 +559,63 @@ else:
                 
                 st.divider()
                 st.metric("🎯 Final Average Score", f"{final_score:.1f}")
+
+                # --- NEW DATE PICKER INJECTION ---
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_10shot")
+                st.write("<br>", unsafe_allow_html=True)
+                # ---------------------------------
                 
                 if st.button("💾 Save 10 Shot Game", type="primary", use_container_width=True):
                     raw_json = edited_df.to_dict(orient='records')
-                    data = {"user_name": st.session_state.current_user, "game_category": "Driving", "game_name": "10 Shot", "score_primary": final_score, "raw_data": raw_json, "week_number": current_week}
+                    # ADDED 'created_at' to the database payload below:
+                    data = {"user_name": st.session_state.current_user, "game_category": "Driving", "game_name": "10 Shot", "score_primary": final_score, "raw_data": raw_json, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     del st.session_state['df_10shot_matrix']
                     st.session_state.mode_10shot = "grid"
+                    st.rerun()
+
+        # --- DRILL: SPEED LIMITS ---
+        elif selected_game == "Max SS/BS":
+            st.subheader("Speed Limits (SS/BS)")
+            st.write("*Your Max Swing Speed and Ball Speed (in mph) with your Driver today. **On-course measurements are highly preferred**, but range measurements can be used if needed.*")
+            
+            if st.session_state.mode_ssbs == "grid":
+                if st.button("➕ New Entry", key="new_ssbs", type="primary"):
+                    st.session_state.mode_ssbs = "entry"
+                    st.rerun()
+                st.divider()
+                df_ssbs = df_logs[df_logs['game_name'] == "Max SS/BS"]
+                render_icon_grid(df_ssbs, "Max SS/BS")
+                
+            elif st.session_state.mode_ssbs == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_ssbs"):
+                    st.session_state.mode_ssbs = "grid"
+                    st.rerun()
+                
+                st.divider()
+                c1, c2 = st.columns(2)
+                ss = c1.number_input("Max Swing Speed (mph)", min_value=0.0, step=1.0, value=110.0)
+                bs = c2.number_input("Max Ball Speed (mph)", min_value=0.0, step=1.0, value=160.0)
+                
+                st.divider()
+                st.metric("⚡ Final Speed Score (SS/BS)", f"{ss:.0f} / {bs:.0f}")
+
+                # --- NEW DATE PICKER INJECTION ---
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_ssbs")
+                st.write("<br>", unsafe_allow_html=True)
+                # ---------------------------------
+                
+                if st.button("💾 Save Speed Limits", type="primary", use_container_width=True):
+                    # ADDED 'created_at' to the database payload below:
+                    data = {"user_name": st.session_state.current_user, "game_category": "Driving", "game_name": "Max SS/BS", "score_primary": ss, "score_secondary": bs, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Speeds locked in!")
+                    st.session_state.mode_ssbs = "grid"
                     st.rerun()
 
         # --- DRILL: SPEED LIMITS ---
