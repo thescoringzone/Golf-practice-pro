@@ -1198,24 +1198,33 @@ else:
                     st.warning(f"⏳ **More data needed.** You only have one period of data for {selected_cat}. The Running Baseline requires at least two periods to calculate your momentum. Log another session next week!")
                 else:
                     pct_diff = pivot.pct_change() * 100
+                    
+                    # FIX: Safely neutralize divide-by-zero Infinity values
+                    pct_diff = pct_diff.replace([float('inf'), float('-inf')], float('nan'))
+                    
                     lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
                     for col in pct_diff.columns:
                         if col in lower_is_better_games:
                             pct_diff[col] = pct_diff[col] * -1 
                             
                     category_momentum = pct_diff.mean(axis=1).dropna()
-                    chart_df = pd.DataFrame(category_momentum, columns=["Momentum Delta (%)"]).reset_index()
-                    latest_momentum = category_momentum.iloc[-1]
                     
-                    st.metric(f"Current {selected_cat} Momentum", f"{latest_momentum:+.1f}%", delta=f"{latest_momentum:+.1f}% improvement vs previous period", delta_color="normal")
-                    
-                    mom_chart = alt.Chart(chart_df).mark_bar().encode(
-                        x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45), sort=None),
-                        y=alt.Y('Momentum Delta (%):Q', title="Momentum (%)"), 
-                        color=alt.condition(alt.datum['Momentum Delta (%)'] > 0, alt.value("#0068C9"), alt.value("#FF4B4B")),
-                        tooltip=[]
-                    ).properties(height=300)
-                    
-                    st.write(f"### {selected_cat} Running Baseline Chart")
-                    st.caption("Blue bars mean you are improving. Red bars mean regression.")
-                    st.altair_chart(mom_chart, use_container_width=True)
+                    # Double-check that after dropping NaNs we still have data left to plot
+                    if category_momentum.empty:
+                        st.info("No valid momentum data could be calculated (scores may have been zero). Keep logging!")
+                    else:
+                        chart_df = pd.DataFrame(category_momentum, columns=["Momentum Delta (%)"]).reset_index()
+                        latest_momentum = category_momentum.iloc[-1]
+                        
+                        st.metric(f"Current {selected_cat} Momentum", f"{latest_momentum:+.1f}%", delta=f"{latest_momentum:+.1f}% improvement vs previous period", delta_color="normal")
+                        
+                        mom_chart = alt.Chart(chart_df).mark_bar().encode(
+                            x=alt.X('Group:N', axis=alt.Axis(title="", labelAngle=-45), sort=None),
+                            y=alt.Y('Momentum Delta (%):Q', title="Momentum (%)"), 
+                            color=alt.condition(alt.datum['Momentum Delta (%)'] > 0, alt.value("#0068C9"), alt.value("#FF4B4B")),
+                            tooltip=[]
+                        ).properties(height=300)
+                        
+                        st.write(f"### {selected_cat} Running Baseline Chart")
+                        st.caption("Blue bars mean you are improving. Red bars mean regression.")
+                        st.altair_chart(mom_chart, use_container_width=True)
