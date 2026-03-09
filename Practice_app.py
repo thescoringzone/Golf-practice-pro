@@ -116,47 +116,78 @@ def render_icon_grid(df_game, game_name):
         st.info("No practice sessions logged yet. Click 'New Entry' to start.")
         return
 
-    cols = st.columns(4)
     df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
     
-    for i, (_, row) in enumerate(df_game.iterrows()):
-        with cols[i % 4]:
-            with st.container(border=True):
-                try:
-                    dt = datetime.datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
-                    date_str = dt.strftime("%b %d, %Y")
-                except:
-                    date_str = str(row['created_at'])[:10]
-                
-                if game_name == "Max SS/BS": score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
-                elif game_name in ["20 to 50"]: score_str = f"{row['score_primary']:.0f}%" 
-                elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: score_str = f"{row['score_primary']:.0f}" 
-                else: score_str = f"{row['score_primary']:.1f}" 
+    # We need to know which games are "lower is better" to color the trend lines correctly
+    lower_is_better = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
 
-                st.markdown(f"""
-                <div style='text-align: center; padding: 5px; margin-bottom: 10px;'>
-                    <span style='color: gray; font-size: 0.9em;'>🗂️ {date_str}</span><br>
-                    <b style='font-size: 1.8em; color: var(--text-color); font-weight: 700; letter-spacing: -0.5px;'>{score_str}</b>
-                </div>
-                """, unsafe_allow_html=True)
+    st.markdown("### 📜 Recent Sessions")
+    
+    for i, row in df_game.iterrows():
+        with st.container(border=True):
+            col1, col2, col3 = st.columns([2, 2, 1])
+            
+            # --- Date Formatting ---
+            try:
+                dt = datetime.datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+                date_str = dt.strftime("%b %d, %Y")
+            except:
+                date_str = str(row['created_at'])[:10]
                 
-                c1, c2 = st.columns(2)
+            # --- Score Formatting & Delta Calculation ---
+            score_val = row['score_primary']
+            score_str = ""
+            delta_str = ""
+            delta_color = "gray"
+            
+            # Calculate Delta if there is an older session logged before this one
+            if i < len(df_game) - 1:
+                prev_score = df_game.iloc[i+1]['score_primary']
+                diff = score_val - prev_score
                 
-                with c1.popover("👁️ View", use_container_width=True):
+                if game_name != "Max SS/BS":  # We skip delta for SS/BS since it has two metrics
+                    if diff > 0:
+                        delta_str = f"📈 +{diff:.1f}" if game_name not in ["20 to 50", "Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📈 +{int(diff)}"
+                        delta_color = "#dc3545" if game_name in lower_is_better else "#28a745" # Red if bad, Green if good
+                    elif diff < 0:
+                        delta_str = f"📉 {diff:.1f}" if game_name not in ["20 to 50", "Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📉 {int(diff)}"
+                        delta_color = "#28a745" if game_name in lower_is_better else "#dc3545" # Green if good, Red if bad
+                    else:
+                        delta_str = "➖ Even"
+                        delta_color = "gray"
+
+            if game_name == "Max SS/BS": 
+                score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
+            elif game_name in ["20 to 50"]: 
+                score_str = f"{row['score_primary']:.0f}%" 
+                if delta_str and "Even" not in delta_str: delta_str += "%"
+            elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: 
+                score_str = f"{row['score_primary']:.0f}" 
+            else: 
+                score_str = f"{row['score_primary']:.2f}" 
+
+            # --- Layout: Column 1 (Date & Trend) ---
+            col1.markdown(f"**{date_str}**<br><span style='color:{delta_color}; font-weight: 600; font-size:0.9em;'>{delta_str}</span>", unsafe_allow_html=True)
+            
+            # --- Layout: Column 2 (Big Score) ---
+            col2.markdown(f"<div style='text-align: center; font-size: 1.5em; font-weight: 800; color: #0068C9;'>{score_str}</div>", unsafe_allow_html=True)
+            
+            # --- Layout: Column 3 (Actions) ---
+            with col3:
+                action_c1, action_c2 = st.columns(2)
+                with action_c1.popover("👁️"):
                     st.markdown("**Session Data:**")
                     if isinstance(row['raw_data'], list) and len(row['raw_data']) > 0:
                         df_view = pd.DataFrame(row['raw_data'])
                         st.dataframe(df_view, hide_index=True, use_container_width=True)
                     else:
                         st.write(f"**Score:** {score_str}")
-                        st.caption("Manual entry game (no matrix data).")
+                        st.caption("Manual entry game.")
                 
-                with c2.popover("🗑️ Del", use_container_width=True):
-                    st.markdown("**Delete this record?**")
-                    st.caption("This cannot be undone.")
-                    if st.button("Yes", key=f"confirm_del_{row['id']}", type="primary", use_container_width=True):
+                with action_c2.popover("🗑️"):
+                    st.markdown("**Delete?**")
+                    if st.button("Yes", key=f"del_{row['id']}", type="primary", use_container_width=True):
                         supabase.table("practice_logs").delete().eq("id", row['id']).execute()
-                        st.success("Record deleted!")
                         st.rerun()
 
 
