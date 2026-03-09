@@ -355,13 +355,6 @@ else:
                         st.session_state.page = cat
                         if cat == "Practice Rounds": st.session_state.pr_game_select = game
                         st.rerun()
-                        elif cat == "Driving": st.session_state.driving_radio = game
-                        elif cat == "Scoring Zone Long": st.session_state.szl_radio = game
-                        elif cat == "Scoring Zone Mid": st.session_state.szm_radio = game
-                        elif cat == "Scoring Zone Short": st.session_state.szs_radio = game
-                        elif cat == "Short Game": st.session_state.sg_radio = game
-                        elif cat == "Putting": st.session_state.putt_radio = game
-                        st.rerun()
                 
         st.divider()
         
