@@ -40,75 +40,22 @@ st.markdown("""
         font-weight: 500 !important;
     }
     
+    /* Premium Card Shadows for Containers and Grids */
     [data-testid="stVerticalBlockBorderWrapper"] {
         border-radius: 12px !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;
         border: 1px solid rgba(150,150,150,0.15) !important;
     }
     
+    /* Subtle button hover effects */
     .stButton > button {
         border-radius: 8px !important;
         transition: all 0.2s ease;
         font-weight: 600 !important;
     }
 
-    /* ==================================================
-       THE BULLETPROOF MENU FIX (EXCLUSION METHOD)
-       ================================================== */
-
-    /* 1. Turn EVERY button in the top header into a blue MENU button */
-    header button {
-        background-color: #0068C9 !important; /* Premium Blue */
-        border-radius: 6px !important;
-        padding: 8px 14px !important;
-        margin-top: 5px !important;
-        margin-left: 5px !important;
-        width: auto !important;
-        height: auto !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-        color: white !important;
-    }
-
-    /* Hide their original icons */
-    header button svg {
-        display: none !important;
-    }
-
-    /* Inject the ☰ MENU text */
-    header button::after {
-        content: "☰ MENU" !important;
-        font-family: 'Montserrat', sans-serif !important;
-        color: white !important;
-        font-weight: 800 !important;
-        font-size: 14px !important;
-        display: block !important;
-    }
-
-    /* 2. REVERT the styling for the developer tools on the right side */
-    [data-testid="stHeaderActions"] button,
-    [data-testid="stToolbar"] button,
-    [data-testid="stActionElements"] button {
-        background-color: transparent !important;
-        box-shadow: none !important;
-        margin: 0 !important;
-        padding: 0.25rem !important;
-        color: inherit !important;
-    }
-
-    /* Bring their original icons back */
-    [data-testid="stHeaderActions"] button svg,
-    [data-testid="stToolbar"] button svg,
-    [data-testid="stActionElements"] button svg {
-        display: block !important;
-    }
-
-    /* Remove the MENU text from the right side */
-    [data-testid="stHeaderActions"] button::after,
-    [data-testid="stToolbar"] button::after,
-    [data-testid="stActionElements"] button::after {
+    /* Hide the Streamlit top-right developer toolbar for a native app feel */
+    [data-testid="stHeaderActions"] {
         display: none !important;
     }
     </style>
