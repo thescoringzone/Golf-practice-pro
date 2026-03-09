@@ -564,6 +564,8 @@ else:
         # 1. State Management
         if 'mode_pr' not in st.session_state: st.session_state.mode_pr = "grid"
         if 'pr_game_select' not in st.session_state: st.session_state.pr_game_select = "Straight up"
+        if 'edit_pr_id' not in st.session_state: st.session_state.edit_pr_id = None
+        if 'edit_pr_data' not in st.session_state: st.session_state.edit_pr_data = {}
         
         # 2. Game Selection
         st.subheader("1. Select Your Game Format")
@@ -580,22 +582,61 @@ else:
         elif pr_game == "10m game":
             st.info("**10m game:** On all odd holes, place your drive in a position 10m worse than the original position, either through rough/bunker lies or distance from the hole. On all even holes, place your approach shot in a position 10m worse than the original position in-line with the hole.")
 
-        # 3. View Mode: GRID (Shows past rounds)
+        # 3. View Mode: GRID (Shows past rounds & Edit logic)
         if st.session_state.mode_pr == "grid":
-            if st.button("➕ Log New Practice Round", key="new_pr", type="primary"):
+            col1, col2 = st.columns(2)
+            if col1.button("➕ Log New Practice Round", key="new_pr", type="primary", use_container_width=True):
+                st.session_state.edit_pr_id = None
+                st.session_state.edit_pr_data = {}
                 st.session_state.mode_pr = "entry"
                 st.rerun()
+                
+            # TEMPORARY BUTTON: Click this once to fix your missing data from earlier!
+            if col2.button("🔧 Fix Missing Old Round Data", use_container_width=True):
+                supabase.table("practice_logs").update({"game_category": "Practice Rounds"}).eq("game_category", "On-Course").execute()
+                st.success("Fixed! Refreshing...")
+                st.rerun()
+                
             st.divider()
             
             df_pr = df_logs[(df_logs['game_category'] == "Practice Rounds") & (df_logs['game_name'] == pr_game)]
+            
+            # --- RESUME / EDIT FEATURE ---
+            if not df_pr.empty:
+                st.write("### ✏️ Resume or Edit a Past Round")
+                st.caption("Select a previously saved round to finish entering your stats.")
+                edit_opts = df_pr.apply(lambda row: f"{str(row['created_at'])[:10]} | Score to Par: {row['score_primary']} (ID: {row['id']})", axis=1).tolist()
+                selected_edit = st.selectbox("Select a round:", ["-- Select a round --"] + edit_opts, label_visibility="collapsed")
+                
+                if selected_edit != "-- Select a round --":
+                    edit_id = int(selected_edit.split("(ID: ")[1].replace(")", ""))
+                    edit_row = df_pr[df_pr['id'] == edit_id].iloc[0]
+                    
+                    st.session_state.edit_pr_id = edit_id
+                    st.session_state.edit_pr_data = edit_row['raw_data']
+                    st.session_state.mode_pr = "entry"
+                    st.rerun()
+            st.divider()
+            
             render_icon_grid(df_pr, pr_game)
             
         # 4. View Mode: ENTRY FORM (The multi-tab data entry)
         elif st.session_state.mode_pr == "entry":
             if st.button("🔙 Back to Previous Entries", key="back_pr"):
                 st.session_state.mode_pr = "grid"
+                st.session_state.edit_pr_id = None
+                st.session_state.edit_pr_data = {}
                 st.rerun()
             st.divider()
+            
+            # Helper function to load existing data if we are editing
+            def get_val(section, key, default):
+                if not st.session_state.get('edit_pr_data'): return default
+                if section: return st.session_state.edit_pr_data.get(section, {}).get(key, default)
+                return st.session_state.edit_pr_data.get(key, default)
+            
+            if st.session_state.edit_pr_id:
+                st.info("✏️ **EDIT MODE:** You are currently updating an existing round. Hit save when you are finished.")
             
             st.subheader("2. Post-Round Debrief Data")
             
@@ -606,49 +647,49 @@ else:
             with tab_oc:
                 st.write("### Round Overview")
                 c1, c2, c3 = st.columns(3)
-                pr_holes = c1.radio("Holes Played", [9, 18], horizontal=True)
-                pr_gross = c2.number_input("Gross Score", min_value=20, max_value=150, value=72, step=1)
-                pr_to_par = c3.number_input("Score to Par (e.g., -2 or +3)", value=0, step=1)
+                pr_holes = c1.radio("Holes Played", [9, 18], index=0 if get_val(None, "holes_played", 9) == 9 else 1, horizontal=True)
+                pr_gross = c2.number_input("Gross Score", min_value=20, max_value=150, value=get_val(None, "gross_score", 72), step=1)
+                pr_to_par = c3.number_input("Score to Par (e.g., -2 or +3)", value=get_val(None, "score_to_par", 0), step=1)
                 
                 st.write("### Approach Accuracy")
                 c4, c5 = st.columns(2)
-                pr_gir_total = c4.number_input("Total GIR Hit", min_value=0, max_value=18, value=9, step=1)
-                pr_gir_5m = c5.number_input("GIR Inside 5m", min_value=0, max_value=18, value=4, step=1)
+                pr_gir_total = c4.number_input("Total GIR Hit", min_value=0, max_value=18, value=get_val(None, "gir_total", 9), step=1)
+                pr_gir_5m = c5.number_input("GIR Inside 5m", min_value=0, max_value=18, value=get_val(None, "gir_inside_5m", 4), step=1)
 
             with tab_drv:
                 st.write("### Tee Shot Accuracy")
                 c1, c2 = st.columns(2)
-                pr_fw_hit = c1.number_input("Fairways Hit", min_value=0, max_value=18, value=7, step=1)
-                pr_tee_shots = c2.number_input("Total Tee Shots Hit", min_value=1, max_value=18, value=14, step=1)
+                pr_fw_hit = c1.number_input("Fairways Hit", min_value=0, max_value=18, value=get_val("driving", "fairways_hit", 7), step=1)
+                pr_tee_shots = c2.number_input("Total Tee Shots Hit", min_value=1, max_value=18, value=get_val("driving", "tee_shots", 14), step=1)
 
             with tab_sz:
                 st.write("### Approach Shot Breakdown")
                 
                 st.markdown("**150-200 Yards**")
                 col_l1, col_l2 = st.columns(2)
-                pr_szl_score = col_l1.number_input("Score to Par (150-200)", value=0, step=1, key="pr_szl_s")
-                pr_szl_shots = col_l2.number_input("Shots Recorded (150-200)", min_value=0, value=5, step=1, key="pr_szl_n")
+                pr_szl_score = col_l1.number_input("Score to Par (150-200)", value=get_val("scoring_zone", "szl_score", 0), step=1, key="pr_szl_s")
+                pr_szl_shots = col_l2.number_input("Shots Recorded (150-200)", min_value=0, value=get_val("scoring_zone", "szl_shots", 5), step=1, key="pr_szl_n")
                 
                 st.markdown("**100-150 Yards**")
                 col_m1, col_m2 = st.columns(2)
-                pr_szm_score = col_m1.number_input("Score to Par (100-150)", value=0, step=1, key="pr_szm_s")
-                pr_szm_shots = col_m2.number_input("Shots Recorded (100-150)", min_value=0, value=5, step=1, key="pr_szm_n")
+                pr_szm_score = col_m1.number_input("Score to Par (100-150)", value=get_val("scoring_zone", "szm_score", 0), step=1, key="pr_szm_s")
+                pr_szm_shots = col_m2.number_input("Shots Recorded (100-150)", min_value=0, value=get_val("scoring_zone", "szm_shots", 5), step=1, key="pr_szm_n")
                 
                 st.markdown("**50-100 Yards**")
                 col_s1, col_s2 = st.columns(2)
-                pr_szs_score = col_s1.number_input("Score to Par (50-100)", value=0, step=1, key="pr_szs_s")
-                pr_szs_shots = col_s2.number_input("Shots Recorded (50-100)", min_value=0, value=5, step=1, key="pr_szs_n")
+                pr_szs_score = col_s1.number_input("Score to Par (50-100)", value=get_val("scoring_zone", "szs_score", 0), step=1, key="pr_szs_s")
+                pr_szs_shots = col_s2.number_input("Shots Recorded (50-100)", min_value=0, value=get_val("scoring_zone", "szs_shots", 5), step=1, key="pr_szs_n")
 
             with tab_sg:
                 st.write("### Around the Green")
                 c1, c2 = st.columns(2)
-                pr_sg_total = c1.number_input("Total Short Game Shots Taken", min_value=0, value=8, step=1)
-                pr_sg_updown = c2.number_input("Successful Up & Downs", min_value=0, value=4, step=1)
+                pr_sg_total = c1.number_input("Total Short Game Shots Taken", min_value=0, value=get_val("short_game", "total_shots", 8), step=1)
+                pr_sg_updown = c2.number_input("Successful Up & Downs", min_value=0, value=get_val("short_game", "up_and_downs", 4), step=1)
                 
                 st.write("### Proximity")
                 c3, c4 = st.columns(2)
-                pr_sg_6ft = c3.number_input("Shots Inside 6ft", min_value=0, value=3, step=1)
-                pr_sg_3ft = c4.number_input("Shots Inside 3ft", min_value=0, value=1, step=1)
+                pr_sg_6ft = c3.number_input("Shots Inside 6ft", min_value=0, value=get_val("short_game", "inside_6ft", 3), step=1)
+                pr_sg_3ft = c4.number_input("Shots Inside 3ft", min_value=0, value=get_val("short_game", "inside_3ft", 1), step=1)
 
             with tab_putt:
                 st.write("### Putting Performance")
@@ -660,21 +701,26 @@ else:
 
                 if putt_mode == "Manual Tour Data Entry":
                     col_m1, col_m2 = st.columns(2)
-                    pr_total_putts = col_m1.number_input("Total Putts", min_value=0, max_value=100, value=30, step=1)
-                    pr_sg_putting = col_m2.number_input("Total SG Putting", value=0.0, step=0.1)
+                    pr_total_putts = col_m1.number_input("Total Putts", min_value=0, max_value=100, value=get_val("putting", "total_putts", 30), step=1)
+                    pr_sg_putting = col_m2.number_input("Total SG Putting", value=float(get_val("putting", "sg_putting", 0.0)), step=0.1)
                 else:
                     metric_cols = st.columns(2)
                     m_putts = metric_cols[0].empty()
                     m_sg = metric_cols[1].empty()
                     st.caption("Slide to select distance, tap to select putts (0 = Not Played).")
 
+                    # Load saved hole-by-hole data if it exists
+                    saved_holes = get_val("putting", "hole_by_hole_data", [])
+                    if not saved_holes or len(saved_holes) != 18:
+                        saved_holes = [{"Distance (ft)": 0, "Putts": 0} for _ in range(18)]
+
                     with st.expander("⛳ Front 9", expanded=True):
                         for i in range(9):
                             with st.container(border=True):
                                 st.markdown(f"**Hole {i+1}**")
                                 c1, c2 = st.columns([3, 2])
-                                dist = c1.slider(f"Hole {i+1} Dist", 0, 100, 0, key=f"dist_pr_{i}", label_visibility="collapsed")
-                                putts = c2.radio(f"Hole {i+1} Putts", [0, 1, 2, 3, 4], index=0, horizontal=True, key=f"putts_pr_{i}", label_visibility="collapsed")
+                                dist = c1.slider(f"Hole {i+1} Dist", 0, 100, int(saved_holes[i].get("Distance (ft)", 0)), key=f"dist_pr_{i}", label_visibility="collapsed")
+                                putts = c2.radio(f"Hole {i+1} Putts", [0, 1, 2, 3, 4], index=int(saved_holes[i].get("Putts", 0)), horizontal=True, key=f"putts_pr_{i}", label_visibility="collapsed")
                                 putting_holes_data.append({"Hole": f"Hole {i+1}", "Distance (ft)": dist, "Putts": putts})
                     
                     if pr_holes == 18:
@@ -683,8 +729,8 @@ else:
                                 with st.container(border=True):
                                     st.markdown(f"**Hole {i+1}**")
                                     c1, c2 = st.columns([3, 2])
-                                    dist = c1.slider(f"Hole {i+1} Dist", 0, 100, 0, key=f"dist_pr_{i}", label_visibility="collapsed")
-                                    putts = c2.radio(f"Hole {i+1} Putts", [0, 1, 2, 3, 4], index=0, horizontal=True, key=f"putts_pr_{i}", label_visibility="collapsed")
+                                    dist = c1.slider(f"Hole {i+1} Dist", 0, 100, int(saved_holes[i].get("Distance (ft)", 0)), key=f"dist_pr_{i}", label_visibility="collapsed")
+                                    putts = c2.radio(f"Hole {i+1} Putts", [0, 1, 2, 3, 4], index=int(saved_holes[i].get("Putts", 0)), horizontal=True, key=f"putts_pr_{i}", label_visibility="collapsed")
                                     putting_holes_data.append({"Hole": f"Hole {i+1}", "Distance (ft)": dist, "Putts": putts})
 
                     for row in putting_holes_data:
@@ -701,12 +747,12 @@ else:
                 st.divider()
                 st.write("**Lag Putting (18ft+)**")
                 c1, c2 = st.columns(2)
-                pr_lag_total = c1.number_input("Total Lag Putts Taken", min_value=0, value=6, step=1)
-                pr_lag_success = c2.number_input("Lag Putts Finished Inside 1 Putter Length", min_value=0, value=5, step=1)
+                pr_lag_total = c1.number_input("Total Lag Putts Taken", min_value=0, value=get_val("putting", "lag_putts_total", 6), step=1)
+                pr_lag_success = c2.number_input("Lag Putts Finished Inside 1 Putter Length", min_value=0, value=get_val("putting", "lag_putts_success", 5), step=1)
 
             st.divider()
             
-            # --- SAVE MASTER FORM ---
+            # --- SAVE OR UPDATE MASTER FORM ---
             today_date = datetime.date.today()
             monday_date = today_date - datetime.timedelta(days=today_date.weekday())
             pr_session_date = st.date_input("Date of Round", value=today_date, min_value=monday_date, max_value=today_date, key="date_pr")
@@ -750,9 +796,18 @@ else:
                     "created_at": f"{pr_session_date}T12:00:00Z"
                 }
                 
-                supabase.table("practice_logs").insert(data).execute()
-                st.success(f"{pr_game} Practice Round Successfully Logged! Check your Weekly Dashboard.")
+                if st.session_state.edit_pr_id:
+                    # Update Existing Round
+                    supabase.table("practice_logs").update(data).eq("id", st.session_state.edit_pr_id).execute()
+                    st.success(f"Round Updated Successfully!")
+                else:
+                    # Insert New Round
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success(f"{pr_game} Practice Round Successfully Logged!")
+                    
                 st.session_state.mode_pr = "grid"
+                st.session_state.edit_pr_id = None
+                st.session_state.edit_pr_data = {}
                 st.rerun()
             
     # ==========================================
