@@ -127,8 +127,21 @@ def load_all_logs(username):
     response = supabase.table("practice_logs").select("*").eq("user_name", username).execute()
     if response.data:
         df = pd.DataFrame(response.data)
+        
         if 'raw_data' in df.columns:
             df['raw_data'] = df['raw_data'].apply(lambda x: x if isinstance(x, dict) else (json.loads(x) if isinstance(x, str) else {}))
+            
+        # --- CREATIVE WORKAROUND: THE AUTO-TRANSLATOR ---
+        # This silently updates your old "On-Course" labels to the new "Situational" ones 
+        # in memory so they show up everywhere without needing to alter your actual database.
+        legacy_mapping = {
+            "On-Course 150-200": "Situational Practice 150-200",
+            "On-Course 100-150": "Situational Practice 100-150",
+            "On-Course 50-100": "Situational Practice 50-100"
+        }
+        if 'game_name' in df.columns:
+            df['game_name'] = df['game_name'].replace(legacy_mapping)
+            
         return df
     else:
         return pd.DataFrame(columns=[
@@ -315,33 +328,33 @@ else:
             "Short Game": ["Par 21 WB", "20 to 50", "6ft Game"],
             "Putting": ["Pace", "6-9-12", "2-8 Drill"]
         }
-        
-        core_categories = list(combine_structure.keys())
-        completed_games_this_week = df_cw['game_name'].dropna().unique().tolist()
-        completed_cats_this_week = df_cw['game_category'].dropna().unique().tolist()
-        
-        completion_count = len([c for c in core_categories if c in completed_cats_this_week])
-        progress_pct = completion_count / len(core_categories)
-        
+
+        completed_games = df_cw['game_name'].dropna().unique().tolist()
+        completed_cats = df_cw['game_category'].dropna().unique().tolist()
+
+        # Fuzzy Logic: Count categories that have ANY data logged
+        completion_count = len([c for c in combine_structure.keys() if c in completed_cats])
+        progress_pct = completion_count / len(combine_structure.keys())
+
         st.subheader(f"🎯 Week {selected_week} Combine Checklist")
-        st.progress(progress_pct, text=f"Combine Completion: {completion_count} / {len(core_categories)} Categories")
+        st.progress(progress_pct, text=f"Combine Completion: {completion_count} / {len(combine_structure.keys())} Categories")
         st.write("<br>", unsafe_allow_html=True)
         
         for cat, games in combine_structure.items():
-            is_cat_complete = cat in completed_cats_this_week
-            cat_icon = "✅" if is_cat_complete else "⏳"
+            # Creative Workaround: If the category exists AT ALL in this week's data, it gets a check!
+            is_cat_complete = cat in completed_cats
             
-            with st.expander(f"{cat_icon} **{cat}**"):
+            with st.expander(f"{'✅' if is_cat_complete else '⏳'} **{cat}**"):
                 for game in games:
-                    is_game_complete = game in completed_games_this_week
-                    game_icon = "✅" if is_game_complete else "⭕"
+                    # Creative Workaround: Substring matching to avoid invisible spacing errors
+                    is_game_complete = any(game in str(cg) for cg in completed_games)
                     
-                    col1, col2 = st.columns([4, 1])
-                    col1.write(f"{game_icon}  {game}")
-                    
-                    if col2.button("Practice ➡️", key=f"nav_dash_{cat}_{game}_{selected_week}", use_container_width=True):
-                        st.session_state.page = cat.replace("Scoring Zone ", "Scoring Zone ")
+                    c1, c2 = st.columns([4, 1])
+                    c1.write(f"{'✅' if is_game_complete else '⭕'} {game}")
+                    if c2.button("➡️", key=f"nav_{cat}_{game}"):
+                        st.session_state.page = cat
                         if cat == "Practice Rounds": st.session_state.pr_game_select = game
+                        st.rerun()
                         elif cat == "Driving": st.session_state.driving_radio = game
                         elif cat == "Scoring Zone Long": st.session_state.szl_radio = game
                         elif cat == "Scoring Zone Mid": st.session_state.szm_radio = game
