@@ -740,86 +740,86 @@ else:
                     st.session_state.mode_ssbs = "grid"
                     st.rerun()
 
-        # ==========================================
-        # PAGE: SCORING ZONE LONG
-        # ==========================================
-        elif st.session_state.page == "Scoring Zone Long":
-            st.title("🎯 Scoring Zone Long (150-200)")
+    # ==========================================
+    # PAGE: SCORING ZONE LONG
+    # ==========================================
+    elif st.session_state.page == "Scoring Zone Long":
+        st.title("🎯 Scoring Zone Long (150-200)")
+        
+        if 'mode_szl_oc' not in st.session_state: st.session_state.mode_szl_oc = "grid"
+        if 'mode_szl_tm' not in st.session_state: st.session_state.mode_szl_tm = "grid"
+
+        format_szl = {"On-Course 150-200": "Situational Practice 150-200", "TM 150-200": "TM 150-200"}
+        selected_game = st.radio("Select Drill:", ["On-Course 150-200", "TM 150-200"], format_func=lambda x: format_szl[x], horizontal=True, key="szl_radio", label_visibility="collapsed")
+        
+        if selected_game == "On-Course 150-200":
+            st.write("*Choose random situational shots between 150-200 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
+            st.caption("**Rules:** 5m from target (not pin) is a birdie, 10m is a par. Outside of 10m is bogey. Penalty shot is double.")
             
-            if 'mode_szl_oc' not in st.session_state: st.session_state.mode_szl_oc = "grid"
-            if 'mode_szl_tm' not in st.session_state: st.session_state.mode_szl_tm = "grid"
+            if st.session_state.mode_szl_oc == "grid":
+                if st.button("➕ New Entry", key="new_szl_oc", type="primary"):
+                    st.session_state.mode_szl_oc = "entry"
+                    st.rerun()
+                st.divider()
+                df_szl_oc = df_logs[df_logs['game_name'] == "On-Course 150-200"]
+                render_icon_grid(df_szl_oc, "On-Course 150-200")
+                
+            elif st.session_state.mode_szl_oc == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szl_oc"):
+                    st.session_state.mode_szl_oc = "grid"
+                    st.rerun()
+                st.divider()
+                
+                c1, c2 = st.columns(2)
+                total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0, step=1)
+                total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1)
+                
+                final_score = total_score / total_shots
+                st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
 
-            format_szl = {"On-Course 150-200": "Situational Practice 150-200", "TM 150-200": "TM 150-200"}
-            selected_game = st.radio("Select Drill:", ["On-Course 150-200", "TM 150-200"], format_func=lambda x: format_szl[x], horizontal=True, key="szl_radio", label_visibility="collapsed")
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_oc")
+                st.write("<br>", unsafe_allow_html=True)
+                
+                if st.button("💾 Save Situational Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "On-Course 150-200", "score_primary": final_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_szl_oc = "grid"
+                    st.rerun()
+
+        elif selected_game == "TM 150-200":
+            st.write("*Launch monitor: Randomised systematic game from 150-200 with all pin locations/green shapes. 10 shot game. Record Strokes Gained.*")
             
-            if selected_game == "On-Course 150-200":
-                st.write("*Choose random situational shots between 150-200 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
-                st.caption("**Rules:** 5m from target (not pin) is a birdie, 10m is a par. Outside of 10m is bogey. Penalty shot is double.")
+            if st.session_state.mode_szl_tm == "grid":
+                if st.button("➕ New Entry", key="new_szl_tm", type="primary"):
+                    st.session_state.mode_szl_tm = "entry"
+                    st.rerun()
+                st.divider()
+                df_szl_tm = df_logs[df_logs['game_name'] == "TM 150-200"]
+                render_icon_grid(df_szl_tm, "TM 150-200")
                 
-                if st.session_state.mode_szl_oc == "grid":
-                    if st.button("➕ New Entry", key="new_szl_oc", type="primary"):
-                        st.session_state.mode_szl_oc = "entry"
-                        st.rerun()
-                    st.divider()
-                    df_szl_oc = df_logs[df_logs['game_name'] == "On-Course 150-200"]
-                    render_icon_grid(df_szl_oc, "On-Course 150-200")
-                    
-                elif st.session_state.mode_szl_oc == "entry":
-                    if st.button("🔙 Back to Previous Entries", key="back_szl_oc"):
-                        st.session_state.mode_szl_oc = "grid"
-                        st.rerun()
-                    st.divider()
-                    
-                    c1, c2 = st.columns(2)
-                    total_score = c1.number_input("Total Score to Par (e.g., -2 or +3)", value=0, step=1)
-                    total_shots = c2.number_input("Number of Shots Recorded", min_value=1, value=10, step=1)
-                    
-                    final_score = total_score / total_shots
-                    st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
-
-                    today_date = datetime.date.today()
-                    monday_date = today_date - datetime.timedelta(days=today_date.weekday())
-                    session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_oc")
-                    st.write("<br>", unsafe_allow_html=True)
-                    
-                    if st.button("💾 Save Situational Log", type="primary", use_container_width=True):
-                        data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "On-Course 150-200", "score_primary": final_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
-                        supabase.table("practice_logs").insert(data).execute()
-                        st.success("Saved!")
-                        st.session_state.mode_szl_oc = "grid"
-                        st.rerun()
-
-            elif selected_game == "TM 150-200":
-                st.write("*Launch monitor: Randomised systematic game from 150-200 with all pin locations/green shapes. 10 shot game. Record Strokes Gained.*")
+            elif st.session_state.mode_szl_tm == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_szl_tm"):
+                    st.session_state.mode_szl_tm = "grid"
+                    st.rerun()
+                st.divider()
                 
-                if st.session_state.mode_szl_tm == "grid":
-                    if st.button("➕ New Entry", key="new_szl_tm", type="primary"):
-                        st.session_state.mode_szl_tm = "entry"
-                        st.rerun()
-                    st.divider()
-                    df_szl_tm = df_logs[df_logs['game_name'] == "TM 150-200"]
-                    render_icon_grid(df_szl_tm, "TM 150-200")
-                    
-                elif st.session_state.mode_szl_tm == "entry":
-                    if st.button("🔙 Back to Previous Entries", key="back_szl_tm"):
-                        st.session_state.mode_szl_tm = "grid"
-                        st.rerun()
-                    st.divider()
-                    
-                    sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1)
+                sg_score = st.number_input("Final Strokes Gained Score", value=0.0, step=0.1)
 
-                    today_date = datetime.date.today()
-                    monday_date = today_date - datetime.timedelta(days=today_date.weekday())
-                    session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_tm")
-                    st.write("<br>", unsafe_allow_html=True)
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szl_tm")
+                st.write("<br>", unsafe_allow_html=True)
+                
+                if st.button("💾 Save TM Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "TM 150-200", "score_primary": sg_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_szl_tm = "grid"
+                    st.rerun()
                     
-                    if st.button("💾 Save TM Log", type="primary", use_container_width=True):
-                        data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Long", "game_name": "TM 150-200", "score_primary": sg_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
-                        supabase.table("practice_logs").insert(data).execute()
-                        st.success("Saved!")
-                        st.session_state.mode_szl_tm = "grid"
-                        st.rerun()
-
     # ==========================================
     # PAGE: SCORING ZONE MID
     # ==========================================
