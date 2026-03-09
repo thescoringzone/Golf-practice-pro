@@ -861,9 +861,17 @@ else:
                 
                 final_score = total_score / total_shots
                 st.metric("📊 Final Average per Shot", f"{final_score:.2f}")
+
+                # --- NEW DATE PICKER INJECTION ---
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szs_oc")
+                st.write("<br>", unsafe_allow_html=True)
+                # ---------------------------------
                 
                 if st.button("💾 Save On-Course Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "On-Course 50-100", "score_primary": final_score, "week_number": current_week}
+                    # ADDED 'created_at' to the database payload below:
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "On-Course 50-100", "score_primary": final_score, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
                     st.session_state.mode_szs_oc = "grid"
@@ -888,9 +896,17 @@ else:
                 st.divider()
                 
                 total_attempts = st.number_input("Total Shots Taken to Complete", min_value=11, value=15, step=1)
+
+                # --- NEW DATE PICKER INJECTION ---
+                today_date = datetime.date.today()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_szs_tm")
+                st.write("<br>", unsafe_allow_html=True)
+                # ---------------------------------
                 
                 if st.button("💾 Save TM Ladder Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "TM 50-100", "score_primary": total_attempts, "week_number": current_week}
+                    # ADDED 'created_at' to the database payload below:
+                    data = {"user_name": st.session_state.current_user, "game_category": "Scoring Zone Short", "game_name": "TM 50-100", "score_primary": total_attempts, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Ladder complete and saved!")
                     st.session_state.mode_szs_tm = "grid"
