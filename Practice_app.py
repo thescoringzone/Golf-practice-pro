@@ -381,21 +381,24 @@ else:
         def generate_pdf_report(df, week, year, username, l_text, s_text):
             class PDF(FPDF):
                 def header(self):
-                    self.set_font("Helvetica", "B", 22)
+                    self.set_y(8) # Push header up slightly to save space
+                    self.set_font("Helvetica", "B", 18)
                     self.set_text_color(41, 55, 70) 
-                    self.cell(0, 10, "GOLF PRACTICE PRO", ln=True, align="C")
-                    self.set_font("Helvetica", "I", 11)
+                    self.cell(0, 7, "GOLF PRACTICE PRO", ln=True, align="C")
+                    self.set_font("Helvetica", "I", 10)
                     self.set_text_color(100, 100, 100) 
-                    self.cell(0, 6, f"Weekly Caddie Report | Player: {username} | Week {week}, {year}", ln=True, align="C")
-                    self.ln(6)
+                    self.cell(0, 5, f"Weekly Caddie Report | Player: {username} | Week {week}, {year}", ln=True, align="C")
+                    self.ln(3) # Tighter gap before content
                     
                 def footer(self):
-                    self.set_y(-15)
-                    self.set_font("Helvetica", "I", 9)
+                    self.set_y(-12)
+                    self.set_font("Helvetica", "I", 8)
                     self.set_text_color(150, 150, 150)
                     self.cell(0, 10, "Practice like a tour pro.", align="C")
                     
             pdf = PDF(orientation="L", unit="mm", format="A4")
+            # Set tighter margins (top, left, right) to guarantee 1-page fit
+            pdf.set_margins(10, 8, 10) 
             pdf.add_page()
             
             start_y = pdf.get_y()
@@ -409,89 +412,91 @@ else:
                 pdf.set_x(10)
                 if row["Category"] != current_category:
                     current_category = row["Category"]
-                    pdf.ln(2) 
+                    pdf.ln(1.5) # Minimal gap between categories
                     pdf.set_x(10)
                     
-                    # Category Header
-                    pdf.set_font("Helvetica", "B", 10)
+                    # Category Header (Slightly thinner)
+                    pdf.set_font("Helvetica", "B", 9)
                     pdf.set_fill_color(41, 55, 70)
                     pdf.set_text_color(255, 255, 255)
-                    pdf.cell(150, 7, f"  {current_category.upper()}", border=1, ln=True, fill=True)
+                    pdf.cell(150, 5.5, f"  {current_category.upper()}", border=1, ln=True, fill=True)
                     
                     pdf.set_x(10)
-                    pdf.set_font("Helvetica", "B", 8)
+                    pdf.set_font("Helvetica", "B", 7)
                     pdf.set_fill_color(240, 240, 240)
                     pdf.set_text_color(0, 0, 0)
                     for i in range(len(headers)):
-                        pdf.cell(col_widths[i], 6, headers[i], border=1, align="C", fill=True)
+                        pdf.cell(col_widths[i], 5, headers[i], border=1, align="C", fill=True)
                     pdf.ln()
                 
-                # Data Rows
+                # Data Rows (Compressed to 5mm height)
                 pdf.set_x(10)
-                pdf.set_font("Helvetica", "", 8)
+                pdf.set_font("Helvetica", "", 7.5)
                 pdf.set_text_color(0, 0, 0)
-                pdf.cell(col_widths[0], 7, f"  {str(row['Drill'])}", border=1)
-                pdf.cell(col_widths[1], 7, str(row['Weekly Avg']), border=1, align="C")
-                pdf.cell(col_widths[2], 7, str(row['Weekly Best']), border=1, align="C")
+                pdf.cell(col_widths[0], 5, f"  {str(row['Drill'])}", border=1)
+                pdf.cell(col_widths[1], 5, str(row['Weekly Avg']), border=1, align="C")
+                pdf.cell(col_widths[2], 5, str(row['Weekly Best']), border=1, align="C")
                 
                 pct = str(row["% Change"])
                 if "+" in pct: pdf.set_text_color(34, 139, 34)
                 elif "-" in pct and pct != "-": pdf.set_text_color(220, 53, 69)
-                pdf.cell(col_widths[3], 7, pct, border=1, align="C")
+                pdf.cell(col_widths[3], 5, pct, border=1, align="C")
                 pdf.set_text_color(0, 0, 0) 
                 pdf.ln()
 
-            # --- RIGHT PANE: TEXT BOXES (120mm wide, Fixed Vertical Height) ---
+            # Capture exactly where the table ended!
+            table_end_y = pdf.get_y() 
+
+            # --- RIGHT PANE: TEXT BOXES (120mm wide) ---
             right_x = 165
             box_width = 120
-            box_height = 70 # Mathematically set to push all the way to the footer
+            
+            # Dynamic Box Height: Mathematically calculate height so boxes perfectly match the table length
+            total_available_height = table_end_y - start_y
+            box_height = (total_available_height - 18) / 2
             
             # Box 1: Learnings
             pdf.set_xy(right_x, start_y)
-            pdf.set_font("Helvetica", "B", 12)
+            pdf.set_font("Helvetica", "B", 11)
             pdf.set_text_color(41, 55, 70)
-            pdf.cell(box_width, 8, "Learnings of the week", ln=1)
+            pdf.cell(box_width, 7, "Learnings of the week", ln=1)
             
-            # Draw empty boundary box
             box1_y = pdf.get_y()
             pdf.rect(right_x, box1_y, box_width, box_height)
             
-            # Insert text inside boundary
             original_l_margin = pdf.l_margin
             pdf.set_left_margin(right_x + 2)
             pdf.set_xy(right_x + 2, box1_y + 2)
-            pdf.set_font("Helvetica", "", 10)
+            pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(box_width - 4, 5, l_text.strip() if l_text else "")
+            pdf.multi_cell(box_width - 4, 4.5, l_text.strip() if l_text else "")
             
             # Box 2: Successes
-            pdf.set_left_margin(original_l_margin) # Reset margin to position header
-            success_start_y = box1_y + box_height + 4 # 4mm gap between boxes
+            pdf.set_left_margin(original_l_margin) 
+            success_start_y = box1_y + box_height + 4 # 4mm gap between the two boxes
             
             pdf.set_xy(right_x, success_start_y)
-            pdf.set_font("Helvetica", "B", 12)
+            pdf.set_font("Helvetica", "B", 11)
             pdf.set_text_color(41, 55, 70)
-            pdf.cell(box_width, 8, "Successes of the week", ln=1)
+            pdf.cell(box_width, 7, "Successes of the week", ln=1)
             
-            # Draw empty boundary box
             box2_y = pdf.get_y()
             pdf.rect(right_x, box2_y, box_width, box_height)
             
-            # Insert text inside boundary
             pdf.set_left_margin(right_x + 2)
             pdf.set_xy(right_x + 2, box2_y + 2)
-            pdf.set_font("Helvetica", "", 10)
+            pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(box_width - 4, 5, s_text.strip() if s_text else "")
+            pdf.multi_cell(box_width - 4, 4.5, s_text.strip() if s_text else "")
             
-            pdf.set_left_margin(original_l_margin) # Final reset
+            pdf.set_left_margin(original_l_margin) 
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 pdf.output(tmp.name)
                 with open(tmp.name, "rb") as f:
                     return f.read()
 
-        # Download Button (Cleanly placed at the bottom)
+        # Download Button
         pdf_bytes = generate_pdf_report(df_report, current_week, current_year, st.session_state.current_user, learnings_input, successes_input)
         st.download_button(
             label="📄 Download Landscape Report",
