@@ -53,52 +53,46 @@ st.markdown("""
     }
 
     /* ==================================================
-       FOOLPROOF MENU BUTTON (THE NUCLEAR OPTION)
+       STATIC FOOLPROOF MENU BUTTON
        ================================================== */
-       
-    @keyframes menuPulse {
-        0% { box-shadow: 0 0 0 0 rgba(0, 104, 201, 0.6); }
-        70% { box-shadow: 0 0 0 12px rgba(0, 104, 201, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(0, 104, 201, 0); }
-    }
 
-    /* Target ALL possible Streamlit sidebar identifiers */
+    /* Target the exact button container with a wider net */
     [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] {
-        background-color: #0068C9 !important; /* Premium Blue */
-        color: white !important;
-        border-radius: 0 8px 8px 0 !important;
-        padding: 8px 16px !important;
-        margin-top: 15px !important;
-        animation: menuPulse 2s infinite !important;
-        z-index: 999999 !important;
-        opacity: 1 !important;
+    [data-testid="stSidebarCollapsedControl"],
+    button[kind="header"] {
+        background-color: #0068C9 !important;
+        border-radius: 6px !important;
+        margin: 10px !important;
+        padding: 8px 14px !important;
         width: auto !important;
+        height: auto !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
     }
 
-    /* Hide the ugly default gray arrows completely */
+    /* Kill the original SVG arrows */
     [data-testid="collapsedControl"] svg,
-    [data-testid="stSidebarCollapsedControl"] svg {
+    [data-testid="stSidebarCollapsedControl"] svg,
+    button[kind="header"] svg {
         display: none !important;
     }
 
-    /* Inject a beautiful "Hamburger Menu" icon and the word MENU */
-    [data-testid="collapsedControl"]::after,
-    [data-testid="stSidebarCollapsedControl"]::after {
+    /* Force the MENU text to appear */
+    [data-testid="collapsedControl"]::before,
+    [data-testid="stSidebarCollapsedControl"]::before,
+    button[kind="header"]::before {
         content: "☰ MENU" !important;
         font-family: 'Montserrat', sans-serif !important;
+        color: white !important;
         font-weight: 800 !important;
         font-size: 14px !important;
-        color: white !important;
-        letter-spacing: 1px !important;
+        visibility: visible !important;
         display: block !important;
     }
     </style>
 """, unsafe_allow_html=True)
-
 
 # ==========================================
 # 2. DATABASE CONNECTION
