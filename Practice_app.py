@@ -281,28 +281,24 @@ else:
         st.title("📊 Weekly Dashboard")
         st.write("Track your practice completion and download your weekly reports.")
         
-        # 1. Bulletproof Date Filtering & Time Machine Logic
-        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce', utc=True)
-        df_logs_valid = df_logs.dropna(subset=['created_at']).copy() # Safely drop bad dates
+        # 1. Date Filtering (Simplified & Bulletproof)
+        # We are bypassing complex pandas timezone math and strictly using the 'week_number' column
+        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce')
+        df_logs['Year'] = df_logs['created_at'].dt.year
         
-        # Use ISO calendar year to perfectly match your current_year variable
-        logged_weeks = sorted(df_logs_valid[df_logs_valid['created_at'].dt.isocalendar().year == current_year]['created_at'].dt.isocalendar().week.unique().tolist(), reverse=True)
+        logged_weeks = sorted(df_logs['week_number'].dropna().unique().tolist(), reverse=True)
         if current_week not in logged_weeks:
             logged_weeks.insert(0, current_week)
             
         col_w1, col_w2 = st.columns([1, 3])
         selected_week = col_w1.selectbox("📅 Select Week to View", logged_weeks, index=logged_weeks.index(current_week))
         
-        # Use exact ISO matching to guarantee no rounds are dropped
-        df_cw = df_logs_valid[(df_logs_valid['created_at'].dt.isocalendar().week == selected_week) & (df_logs_valid['created_at'].dt.isocalendar().year == current_year)].copy()
+        # Filter strictly by the explicit week_number we saved to Supabase
+        df_cw = df_logs[(df_logs['week_number'] == selected_week) & (df_logs['Year'] == current_year)].copy()
         
-        lw_week = selected_week - 1
-        lw_year = current_year
-        if lw_week == 0:  
-            lw_week = 52
-            lw_year -= 1
-            
-        df_lw = df_logs_valid[(df_logs_valid['created_at'].dt.isocalendar().week == lw_week) & (df_logs_valid['created_at'].dt.isocalendar().year == lw_year)].copy()
+        lw_week = selected_week - 1 if selected_week > 1 else 52
+        lw_year = current_year if selected_week > 1 else current_year - 1
+        df_lw = df_logs[(df_logs['week_number'] == lw_week) & (df_logs['Year'] == lw_year)].copy()
         
         combine_structure = {
             "Practice Rounds": ["Straight up", "5m game", "10m game"],
@@ -358,33 +354,25 @@ else:
         else:
             df_cw_sort = df_cw.sort_values('created_at', ascending=False)
             
-            # Safe column extraction prevents app from crashing if 'score_secondary' is missing
-            cols_to_keep = ['game_category', 'game_name', 'score_primary', 'raw_data']
-            if 'score_secondary' in df_cw_sort.columns:
-                cols_to_keep.append('score_secondary')
-            
-            df_display = df_cw_sort[cols_to_keep].copy()
-            
             def format_dashboard_score(row):
                 gn = row.get('game_name', '')
                 cat = row.get('game_category', '')
                 p = row.get('score_primary', 0)
                 if pd.isna(p): p = 0
                 
-                # Safely format Practice Rounds
+                # Bulletproof Practice Rounds formatting
                 if cat == "Practice Rounds":
                     raw = row.get('raw_data', {})
-                    if isinstance(raw, str): # Safely parse if Supabase returned a string
+                    if not isinstance(raw, dict):
                         try:
                             import json
-                            raw = json.loads(raw)
+                            raw = json.loads(raw) if isinstance(raw, str) else {}
                         except:
                             raw = {}
-                    gross = raw.get('gross_score', 0) if isinstance(raw, dict) else 0
+                    gross = raw.get('gross_score', 0)
                     to_par_str = f"+{int(p)}" if p > 0 else ("E" if p == 0 else f"{int(p)}")
                     return f"{int(gross)} ({to_par_str})"
 
-                # Safely format standard drills
                 s = row.get('score_secondary', 0)
                 if pd.isna(s): s = 0
                 
@@ -393,6 +381,7 @@ else:
                 elif gn in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: return f"{p:.0f}"
                 else: return f"{p:.2f}"
                 
+            df_display = df_cw_sort.copy()
             df_display['Score'] = df_display.apply(format_dashboard_score, axis=1)
             df_display['Drill'] = df_display.apply(lambda x: x['game_name'].replace("On-Course", "Situational Practice") if x['game_category'] in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else x['game_name'], axis=1)
             
@@ -409,177 +398,6 @@ else:
 
         st.divider()
         
-        # ==========================================
-        # THE CADDIE REPORT (LANDSCAPE PDF)
-        # ==========================================
-        st.subheader("📄 Your Weekly Caddie Report")
-        st.write(f"*Download your 1-page Landscape PDF summary for Week {selected_week}.*")
-        
-        report_data = []
-        lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
-
-        for cat, games in combine_structure.items():
-            for game in games:
-                cw_game = df_cw[df_cw['game_name'] == game]
-                lw_game = df_lw[df_lw['game_name'] == game]
-                
-                # --- TRANSLATION LAYER FOR PDF REPORT ---
-                display_game = game.replace("On-Course", "Situational Practice") if cat in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else game
-                
-                if cw_game.empty:
-                    report_data.append([cat, display_game, "-", "-", "-"])
-                    continue
-                    
-                if game == "Max SS/BS":
-                    cw_avg_ss, cw_avg_bs = cw_game['score_primary'].mean(), cw_game['score_secondary'].mean()
-                    cw_best_ss, cw_best_bs = cw_game['score_primary'].max(), cw_game['score_secondary'].max()
-                    avg_str, best_str = f"{cw_avg_ss:.0f}/{cw_avg_bs:.0f}", f"{cw_best_ss:.0f}/{cw_best_bs:.0f}"
-                    pct_str = "-"
-                    if not lw_game.empty:
-                        lw_avg_ss = lw_game['score_primary'].mean()
-                        denom_ss = lw_avg_ss if lw_avg_ss > 0 else 1.0
-                        pct = ((cw_avg_ss - lw_avg_ss) / denom_ss) * 100
-                        pct_str = f"{pct:+.1f}% (SS)"
-                    report_data.append([cat, display_game, avg_str, best_str, pct_str])
-                else:
-                    cw_avg = cw_game['score_primary'].mean()
-                    is_lower_better = game in lower_is_better_games
-                    cw_best = cw_game['score_primary'].min() if is_lower_better else cw_game['score_primary'].max()
-                    
-                    if game in ["20 to 50"]: avg_str, best_str = f"{cw_avg:.0f}%", f"{cw_best:.0f}%"
-                    elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: avg_str, best_str = f"{cw_avg:.0f}", f"{cw_best:.0f}"
-                    else: avg_str, best_str = f"{cw_avg:.2f}", f"{cw_best:.2f}"
-                        
-                    pct_str = "-"
-                    if not lw_game.empty:
-                        lw_avg = lw_game['score_primary'].mean()
-                        denom = abs(lw_avg) if lw_avg != 0 else 1.0 
-                        pct = ((cw_avg - lw_avg) / denom) * 100
-                        if is_lower_better: pct = -pct 
-                        pct_str = f"{pct:+.1f}%"
-                    report_data.append([cat, display_game, avg_str, best_str, pct_str])
-                    
-        df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
-
-        def generate_pdf_report(df, week, year, username, l_text, s_text):
-            class PDF(FPDF):
-                def header(self):
-                    self.set_y(8) 
-                    self.set_font("Helvetica", "B", 18)
-                    self.set_text_color(41, 55, 70) 
-                    self.cell(0, 7, "THE PRACTICE CLUB", ln=True, align="C")
-                    self.set_font("Helvetica", "I", 10)
-                    self.set_text_color(100, 100, 100) 
-                    self.cell(0, 5, f"Tour Pro Edition | Player: {username} | Week {week}, {year}", ln=True, align="C")
-                    self.ln(3) 
-                    
-            pdf = PDF(orientation="L", unit="mm", format="A4")
-            pdf.set_margins(10, 8, 10) 
-            pdf.set_auto_page_break(auto=False)
-            pdf.add_page()
-            
-            start_y = pdf.get_y()
-            
-            col_widths = [60, 30, 30, 30]
-            headers = ["Drill", "Avg", "Best", "% Change"]
-            current_category = ""
-            
-            for _, row in df.iterrows():
-                pdf.set_x(10)
-                if row["Category"] != current_category:
-                    current_category = row["Category"]
-                    pdf.ln(1.5) 
-                    pdf.set_x(10)
-                    
-                    pdf.set_font("Helvetica", "B", 9)
-                    pdf.set_fill_color(41, 55, 70)
-                    pdf.set_text_color(255, 255, 255)
-                    pdf.cell(150, 5.5, f"  {current_category.upper()}", border=1, ln=True, fill=True)
-                    
-                    pdf.set_x(10)
-                    pdf.set_font("Helvetica", "B", 7)
-                    pdf.set_fill_color(240, 240, 240)
-                    pdf.set_text_color(0, 0, 0)
-                    for i in range(len(headers)):
-                        pdf.cell(col_widths[i], 5, headers[i], border=1, align="C", fill=True)
-                    pdf.ln()
-                
-                pdf.set_x(10)
-                pdf.set_font("Helvetica", "", 7.5)
-                pdf.set_text_color(0, 0, 0)
-                pdf.cell(col_widths[0], 5, f"  {str(row['Drill'])}", border=1)
-                pdf.cell(col_widths[1], 5, str(row['Weekly Avg']), border=1, align="C")
-                pdf.cell(col_widths[2], 5, str(row['Weekly Best']), border=1, align="C")
-                
-                pct = str(row["% Change"])
-                if "+" in pct: pdf.set_text_color(34, 139, 34)
-                elif "-" in pct and pct != "-": pdf.set_text_color(220, 53, 69)
-                pdf.cell(col_widths[3], 5, pct, border=1, align="C")
-                pdf.set_text_color(0, 0, 0) 
-                pdf.ln()
-
-            table_end_y = pdf.get_y() 
-
-            right_x = 165
-            box_width = 120
-            
-            total_available_height = table_end_y - start_y
-            box_height = (total_available_height - 18) / 2
-            
-            pdf.set_xy(right_x, start_y)
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.set_text_color(41, 55, 70)
-            pdf.cell(box_width, 7, "Learnings of the week", ln=1)
-            
-            box1_y = pdf.get_y()
-            pdf.rect(right_x, box1_y, box_width, box_height)
-            
-            original_l_margin = pdf.l_margin
-            pdf.set_left_margin(right_x + 2)
-            pdf.set_xy(right_x + 2, box1_y + 2)
-            pdf.set_font("Helvetica", "", 9)
-            pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(box_width - 4, 4.5, l_text.strip() if l_text else "")
-            
-            pdf.set_left_margin(original_l_margin) 
-            success_start_y = box1_y + box_height + 4 
-            
-            pdf.set_xy(right_x, success_start_y)
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.set_text_color(41, 55, 70)
-            pdf.cell(box_width, 7, "Successes of the week", ln=1)
-            
-            box2_y = pdf.get_y()
-            pdf.rect(right_x, box2_y, box_width, box_height)
-            
-            pdf.set_left_margin(right_x + 2)
-            pdf.set_xy(right_x + 2, box2_y + 2)
-            pdf.set_font("Helvetica", "", 9)
-            pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(box_width - 4, 4.5, s_text.strip() if s_text else "")
-            
-            pdf.set_left_margin(original_l_margin) 
-
-            pdf.set_y(195)
-            pdf.set_font("Helvetica", "I", 8)
-            pdf.set_text_color(150, 150, 150)
-            pdf.cell(0, 10, "The Practice Club - Tour Pro Edition", align="C")
-
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                pdf.output(tmp.name)
-                with open(tmp.name, "rb") as f:
-                    return f.read()
-
-        pdf_bytes = generate_pdf_report(df_report, selected_week, current_year, st.session_state.current_user, learnings_input, successes_input)
-        st.download_button(
-            label=f"📄 Download Week {selected_week} Landscape Report",
-            data=pdf_bytes,
-            file_name=f"The_Practice_Club_Week_{selected_week}.pdf",
-            mime="application/pdf",
-            type="primary",
-            use_container_width=True
-        )
-
     # ==========================================
     # PAGE: PRACTICE ROUNDS (THE MASTER FORM)
     # ==========================================
