@@ -281,17 +281,20 @@ else:
         st.title("📊 Weekly Dashboard")
         st.write("Track your practice completion and download your weekly reports.")
         
-        # 1. Date Filtering & Time Machine Logic
+        # 1. Bulletproof Date Filtering & Time Machine Logic
         df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce', utc=True)
+        df_logs_valid = df_logs.dropna(subset=['created_at']).copy() # Safely drop bad dates
         
-        logged_weeks = sorted(df_logs[df_logs['created_at'].dt.year == current_year]['created_at'].dt.isocalendar().week.dropna().unique().tolist(), reverse=True)
+        # Use ISO calendar year to perfectly match your current_year variable
+        logged_weeks = sorted(df_logs_valid[df_logs_valid['created_at'].dt.isocalendar().year == current_year]['created_at'].dt.isocalendar().week.unique().tolist(), reverse=True)
         if current_week not in logged_weeks:
             logged_weeks.insert(0, current_week)
             
         col_w1, col_w2 = st.columns([1, 3])
         selected_week = col_w1.selectbox("📅 Select Week to View", logged_weeks, index=logged_weeks.index(current_week))
         
-        df_cw = df_logs[(df_logs['created_at'].dt.isocalendar().week == selected_week) & (df_logs['created_at'].dt.year == current_year)].copy()
+        # Use exact ISO matching to guarantee no rounds are dropped
+        df_cw = df_logs_valid[(df_logs_valid['created_at'].dt.isocalendar().week == selected_week) & (df_logs_valid['created_at'].dt.isocalendar().year == current_year)].copy()
         
         lw_week = selected_week - 1
         lw_year = current_year
@@ -299,9 +302,8 @@ else:
             lw_week = 52
             lw_year -= 1
             
-        df_lw = df_logs[(df_logs['created_at'].dt.isocalendar().week == lw_week) & (df_logs['created_at'].dt.year == lw_year)].copy()
+        df_lw = df_logs_valid[(df_logs_valid['created_at'].dt.isocalendar().week == lw_week) & (df_logs_valid['created_at'].dt.isocalendar().year == lw_year)].copy()
         
-        # UPDATED DICTIONARY: Now specifically tracks "Practice Rounds"
         combine_structure = {
             "Practice Rounds": ["Straight up", "5m game", "10m game"],
             "Driving": ["10 Shot", "Max SS/BS"],
@@ -355,21 +357,37 @@ else:
             st.info("No practice logged for this week.")
         else:
             df_cw_sort = df_cw.sort_values('created_at', ascending=False)
-            df_display = df_cw_sort[['game_category', 'game_name', 'score_primary', 'score_secondary', 'raw_data']].copy()
+            
+            # Safe column extraction prevents app from crashing if 'score_secondary' is missing
+            cols_to_keep = ['game_category', 'game_name', 'score_primary', 'raw_data']
+            if 'score_secondary' in df_cw_sort.columns:
+                cols_to_keep.append('score_secondary')
+            
+            df_display = df_cw_sort[cols_to_keep].copy()
             
             def format_dashboard_score(row):
-                gn = row['game_name']
-                cat = row['game_category']
-                p = row['score_primary']
+                gn = row.get('game_name', '')
+                cat = row.get('game_category', '')
+                p = row.get('score_primary', 0)
+                if pd.isna(p): p = 0
                 
-                # NEW LOGIC: Format Practice Rounds as "Gross (To Par)"
+                # Safely format Practice Rounds
                 if cat == "Practice Rounds":
-                    raw = row['raw_data']
+                    raw = row.get('raw_data', {})
+                    if isinstance(raw, str): # Safely parse if Supabase returned a string
+                        try:
+                            import json
+                            raw = json.loads(raw)
+                        except:
+                            raw = {}
                     gross = raw.get('gross_score', 0) if isinstance(raw, dict) else 0
                     to_par_str = f"+{int(p)}" if p > 0 else ("E" if p == 0 else f"{int(p)}")
                     return f"{int(gross)} ({to_par_str})"
 
-                s = row['score_secondary']
+                # Safely format standard drills
+                s = row.get('score_secondary', 0)
+                if pd.isna(s): s = 0
+                
                 if gn == "Max SS/BS": return f"{p:.0f} / {s:.0f}"
                 elif gn in ["20 to 50"]: return f"{p:.0f}%"
                 elif gn in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: return f"{p:.0f}"
