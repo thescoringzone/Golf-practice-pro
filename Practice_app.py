@@ -354,6 +354,7 @@ else:
         pass 
 
     # [Ensure all your other 'elif' pages for Driving, Putting, etc. follow here]
+
 # ==========================================
 # 6. ROUTING: SECURE PLATFORM & SIDEBAR
 # ==========================================
