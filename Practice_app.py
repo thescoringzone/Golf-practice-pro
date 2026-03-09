@@ -265,7 +265,6 @@ else:
         # 1. Date Filtering & Time Machine Logic
         df_logs['created_at'] = pd.to_datetime(df_logs['created_at'])
         
-        # Find all weeks the user has practiced in the current year
         logged_weeks = sorted(df_logs[df_logs['created_at'].dt.year == current_year]['created_at'].dt.isocalendar().week.dropna().unique().tolist(), reverse=True)
         if current_week not in logged_weeks:
             logged_weeks.insert(0, current_week)
@@ -273,13 +272,11 @@ else:
         col_w1, col_w2 = st.columns([1, 3])
         selected_week = col_w1.selectbox("📅 Select Week to View", logged_weeks, index=logged_weeks.index(current_week))
         
-        # Filter for the SELECTED week
         df_cw = df_logs[(df_logs['created_at'].dt.isocalendar().week == selected_week) & (df_logs['created_at'].dt.year == current_year)].copy()
         
-        # Calculate the week BEFORE the selected week for momentum comparison
         lw_week = selected_week - 1
         lw_year = current_year
-        if lw_week == 0:  # Handle year crossover
+        if lw_week == 0:  
             lw_week = 52
             lw_year -= 1
             
@@ -313,8 +310,12 @@ else:
                 for game in games:
                     is_game_complete = game in completed_games_this_week
                     game_icon = "✅" if is_game_complete else "⭕"
+                    
+                    # --- TRANSLATION LAYER FOR UI CHECKLIST ---
+                    display_game = game.replace("On-Course", "Situational Practice") if cat in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else game
+                    
                     col1, col2 = st.columns([4, 1])
-                    col1.write(f"{game_icon}  {game}")
+                    col1.write(f"{game_icon}  {display_game}")
                     
                     if col2.button("Practice ➡️", key=f"nav_{cat}_{game}_{selected_week}", use_container_width=True):
                         st.session_state.page = cat
@@ -328,13 +329,12 @@ else:
             
         st.divider()
         
-        # --- Ultra-Clean Logged Sessions ---
         st.subheader(f"📝 Week {selected_week} Logged Sessions")
         if df_cw.empty:
             st.info("No practice logged for this week.")
         else:
             df_cw_sort = df_cw.sort_values('created_at', ascending=False)
-            df_display = df_cw_sort[['game_name', 'score_primary', 'score_secondary']].copy()
+            df_display = df_cw_sort[['game_category', 'game_name', 'score_primary', 'score_secondary']].copy()
             
             def format_dashboard_score(row):
                 gn = row['game_name']
@@ -346,14 +346,15 @@ else:
                 else: return f"{p:.2f}"
                 
             df_display['Score'] = df_display.apply(format_dashboard_score, axis=1)
-            df_clean = df_display[['game_name', 'Score']].rename(columns={'game_name': 'Drill'})
+            
+            # --- TRANSLATION LAYER FOR LOG TABLE ---
+            df_display['Drill'] = df_display.apply(lambda x: x['game_name'].replace("On-Course", "Situational Practice") if x['game_category'] in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else x['game_name'], axis=1)
+            
+            df_clean = df_display[['Drill', 'Score']]
             st.dataframe(df_clean, hide_index=True, use_container_width=True)
             
         st.divider()
 
-        # ---------------------------------------------------------
-        # Weekly Reflections Inputs
-        # ---------------------------------------------------------
         st.subheader("🧠 Weekly Reflections")
         st.write("*Jot down your thoughts. They will be formatted onto the right-side of your PDF report.*")
         col_ref1, col_ref2 = st.columns(2)
@@ -376,8 +377,11 @@ else:
                 cw_game = df_cw[df_cw['game_name'] == game]
                 lw_game = df_lw[df_lw['game_name'] == game]
                 
+                # --- TRANSLATION LAYER FOR PDF REPORT ---
+                display_game = game.replace("On-Course", "Situational Practice") if cat in ["Scoring Zone Long", "Scoring Zone Mid", "Scoring Zone Short"] else game
+                
                 if cw_game.empty:
-                    report_data.append([cat, game, "-", "-", "-"])
+                    report_data.append([cat, display_game, "-", "-", "-"])
                     continue
                     
                 if game == "Max SS/BS":
@@ -390,7 +394,7 @@ else:
                         denom_ss = lw_avg_ss if lw_avg_ss > 0 else 1.0
                         pct = ((cw_avg_ss - lw_avg_ss) / denom_ss) * 100
                         pct_str = f"{pct:+.1f}% (SS)"
-                    report_data.append([cat, game, avg_str, best_str, pct_str])
+                    report_data.append([cat, display_game, avg_str, best_str, pct_str])
                 else:
                     cw_avg = cw_game['score_primary'].mean()
                     is_lower_better = game in lower_is_better_games
@@ -407,13 +411,10 @@ else:
                         pct = ((cw_avg - lw_avg) / denom) * 100
                         if is_lower_better: pct = -pct 
                         pct_str = f"{pct:+.1f}%"
-                    report_data.append([cat, game, avg_str, best_str, pct_str])
+                    report_data.append([cat, display_game, avg_str, best_str, pct_str])
                     
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
 
-        # ---------------------------------------------------------
-        # Landscape PDF Compilation Function
-        # ---------------------------------------------------------
         def generate_pdf_report(df, week, year, username, l_text, s_text):
             class PDF(FPDF):
                 def header(self):
