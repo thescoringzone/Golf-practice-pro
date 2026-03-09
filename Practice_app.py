@@ -268,7 +268,7 @@ else:
     st.sidebar.caption(f"Timezone: {st.session_state.timezone}")
     st.sidebar.caption(f"🗓️ **Week {current_week} of {current_year}**")
     
-    if st.sidebar.button("Log Out"):
+    if st.sidebar.button("Log Out", key="sidebar_logout_btn"): # Added unique key
         st.session_state.current_user = None
         st.session_state.page = "Login"
         st.rerun()
@@ -289,7 +289,8 @@ else:
     ]
     
     for opt in nav_options:
-        if st.sidebar.button(opt, use_container_width=True, type="primary" if st.session_state.page == opt else "secondary"):
+        # We add a unique 'key' here so the buttons never conflict
+        if st.sidebar.button(opt, key=f"nav_side_{opt}", use_container_width=True, type="primary" if st.session_state.page == opt else "secondary"):
             st.session_state.page = opt
             st.rerun()
 
