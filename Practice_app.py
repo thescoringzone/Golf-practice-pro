@@ -912,15 +912,14 @@ else:
         if 'mode_10shot' not in st.session_state: st.session_state.mode_10shot = "grid"
         if 'mode_ssbs' not in st.session_state: st.session_state.mode_ssbs = "grid"
 
-        # WE ADD "On-Course Stats" TO THE MENU HERE
-        selected_game = st.radio("Select Drill:", ["On-Course Stats", "10 Shot", "Max SS/BS"], horizontal=True, key="driving_radio", label_visibility="collapsed")
+        # FIX: Bug-free radio menu with On-Course Stats at the end
+        drill_opts = ["10 Shot", "Max SS/BS", "On-Course Stats"]
+        if st.session_state.get('driving_radio') not in drill_opts: st.session_state.driving_radio = "10 Shot"
         
-        # WE ADD THE NEW TAB LOGIC HERE
-        if selected_game == "On-Course Stats":
-            st.subheader("On-Course Driving Stats")
-            render_on_course_performance("Driving")
-            
-        elif selected_game == "10 Shot":
+        selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.driving_radio), horizontal=True, label_visibility="collapsed")
+        st.session_state.driving_radio = selected_game
+        
+        if selected_game == "10 Shot":
             st.subheader("The 10 Shot Game")
             st.write("*Hit 10 shots. Carry distance (yds/m) minus offline total (ft). Average is your final score.*")
             
@@ -1015,20 +1014,24 @@ else:
                     st.success("Speeds locked in!")
                     st.session_state.mode_ssbs = "grid"
                     st.rerun()
+                    
+        elif selected_game == "On-Course Stats":
+            render_on_course_performance("Driving")
 
     # ==========================================
     # PAGE: SCORING ZONE LONG
     # ==========================================
     elif st.session_state.page == "Scoring Zone Long":
         st.title("🎯 Scoring Zone Long (150-200)")
-
-        render_on_course_performance("Scoring Zone Long")
         
         if 'mode_szl_oc' not in st.session_state: st.session_state.mode_szl_oc = "grid"
         if 'mode_szl_tm' not in st.session_state: st.session_state.mode_szl_tm = "grid"
 
-        format_szl = {"Situational Practice 150-200": "Situational Practice 150-200", "TM 150-200": "TM 150-200"}
-        selected_game = st.radio("Select Drill:", ["Situational Practice 150-200", "TM 150-200"], format_func=lambda x: format_szl[x], horizontal=True, key="szl_radio", label_visibility="collapsed")
+        drill_opts = ["Situational Practice 150-200", "TM 150-200", "On-Course Stats"]
+        if st.session_state.get('szl_radio') not in drill_opts: st.session_state.szl_radio = "Situational Practice 150-200"
+        
+        selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.szl_radio), horizontal=True, label_visibility="collapsed")
+        st.session_state.szl_radio = selected_game
         
         if selected_game == "Situational Practice 150-200":
             st.write("*Choose random situational shots between 150-200 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
@@ -1097,20 +1100,24 @@ else:
                     st.success("Saved!")
                     st.session_state.mode_szl_tm = "grid"
                     st.rerun()
+                    
+        elif selected_game == "On-Course Stats":
+            render_on_course_performance("Scoring Zone Long")
 
     # ==========================================
     # PAGE: SCORING ZONE MID
     # ==========================================
     elif st.session_state.page == "Scoring Zone Mid":
         st.title("🎯 Scoring Zone Mid (100-150)")
-
-        render_on_course_performance("Scoring Zone Mid")
         
         if 'mode_szm_oc' not in st.session_state: st.session_state.mode_szm_oc = "grid"
         if 'mode_szm_tm' not in st.session_state: st.session_state.mode_szm_tm = "grid"
 
-        format_szm = {"Situational Practice 100-150": "Situational Practice 100-150", "TM 100-150": "TM 100-150"}
-        selected_game = st.radio("Select Drill:", ["Situational Practice 100-150", "TM 100-150"], format_func=lambda x: format_szm[x], horizontal=True, key="szm_radio", label_visibility="collapsed")
+        drill_opts = ["Situational Practice 100-150", "TM 100-150", "On-Course Stats"]
+        if st.session_state.get('szm_radio') not in drill_opts: st.session_state.szm_radio = "Situational Practice 100-150"
+        
+        selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.szm_radio), horizontal=True, label_visibility="collapsed")
+        st.session_state.szm_radio = selected_game
         
         if selected_game == "Situational Practice 100-150":
             st.write("*Choose random situational shots between 100-150 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
@@ -1179,20 +1186,24 @@ else:
                     st.success("Saved!")
                     st.session_state.mode_szm_tm = "grid"
                     st.rerun()
+                    
+        elif selected_game == "On-Course Stats":
+            render_on_course_performance("Scoring Zone Mid")
 
     # ==========================================
     # PAGE: SCORING ZONE SHORT
     # ==========================================
     elif st.session_state.page == "Scoring Zone Short":
         st.title("🎯 Scoring Zone Short (50-100)")
-
-        render_on_course_performance("Scoring Zone Short")
         
         if 'mode_szs_oc' not in st.session_state: st.session_state.mode_szs_oc = "grid"
         if 'mode_szs_tm' not in st.session_state: st.session_state.mode_szs_tm = "grid"
 
-        format_szs = {"Situational Practice 50-100": "Situational Practice 50-100", "TM 50-100": "TM 50-100"}
-        selected_game = st.radio("Select Drill:", ["Situational Practice 50-100", "TM 50-100"], format_func=lambda x: format_szs[x], horizontal=True, key="szs_radio", label_visibility="collapsed")
+        drill_opts = ["Situational Practice 50-100", "TM 50-100", "On-Course Stats"]
+        if st.session_state.get('szs_radio') not in drill_opts: st.session_state.szs_radio = "Situational Practice 50-100"
+        
+        selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.szs_radio), horizontal=True, label_visibility="collapsed")
+        st.session_state.szs_radio = selected_game
         
         if selected_game == "Situational Practice 50-100":
             st.write("*Choose random situational shots between 50-100 yards/meters. At least 30% of shots must be from non-fairway lies including fairway bunkers, first-cut, and/or rough shots.*")
@@ -1261,20 +1272,25 @@ else:
                     st.success("Ladder complete and saved!")
                     st.session_state.mode_szs_tm = "grid"
                     st.rerun()
+                    
+        elif selected_game == "On-Course Stats":
+            render_on_course_performance("Scoring Zone Short")
 
     # ==========================================
     # PAGE: SHORT GAME
     # ==========================================
     elif st.session_state.page == "Short Game":
         st.title("🪤 Short Game Combine")
-
-        render_on_course_performance("Short Game")
         
         if 'mode_sg_par21' not in st.session_state: st.session_state.mode_sg_par21 = "grid"
         if 'mode_sg_2050' not in st.session_state: st.session_state.mode_sg_2050 = "grid"
         if 'mode_sg_6ft' not in st.session_state: st.session_state.mode_sg_6ft = "grid"
 
-        selected_game = st.radio("Select Drill:", ["Par 21 WB", "20 to 50", "6ft Game"], horizontal=True, key="sg_radio", label_visibility="collapsed")
+        drill_opts = ["Par 21 WB", "20 to 50", "6ft Game", "On-Course Stats"]
+        if st.session_state.get('sg_radio') not in drill_opts: st.session_state.sg_radio = "Par 21 WB"
+        
+        selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.sg_radio), horizontal=True, label_visibility="collapsed")
+        st.session_state.sg_radio = selected_game
         
         if selected_game == "Par 21 WB":
             st.write("*A 9 hole short game course, with 3 easy, 3 medium, and 3 hard shots all from green-side up to 50 yards.*")
@@ -1412,20 +1428,25 @@ else:
                     st.success("Saved!")
                     st.session_state.mode_sg_6ft = "grid"
                     st.rerun()
+                    
+        elif selected_game == "On-Course Stats":
+            render_on_course_performance("Short Game")
 
     # ==========================================
     # PAGE: PUTTING
     # ==========================================
     elif st.session_state.page == "Putting":
         st.title("⛳ Putting Combine")
-
-        render_on_course_performance("Putting")
         
         if 'mode_putt_pace' not in st.session_state: st.session_state.mode_putt_pace = "grid"
         if 'mode_putt_6912' not in st.session_state: st.session_state.mode_putt_6912 = "grid"
         if 'mode_putt_28' not in st.session_state: st.session_state.mode_putt_28 = "grid"
 
-        selected_game = st.radio("Select Drill:", ["Pace", "6-9-12", "2-8 Drill"], horizontal=True, key="putt_radio", label_visibility="collapsed")
+        drill_opts = ["Pace", "6-9-12", "2-8 Drill", "On-Course Stats"]
+        if st.session_state.get('putt_radio') not in drill_opts: st.session_state.putt_radio = "Pace"
+        
+        selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.putt_radio), horizontal=True, label_visibility="collapsed")
+        st.session_state.putt_radio = selected_game
         
         if selected_game == "Pace":
             st.write("*You have 3 lives. Hit random putts from 20-50ft. You lose a life if your putt finishes outside one putter length.*")
@@ -1522,6 +1543,9 @@ else:
                     st.success("Saved!")
                     st.session_state.mode_putt_28 = "grid"
                     st.rerun()
+                    
+        elif selected_game == "On-Course Stats":
+            render_on_course_performance("Putting")
 
     # ==========================================
     # PAGE: YOUR PRACTICE TRENDS
