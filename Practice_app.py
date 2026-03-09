@@ -1197,10 +1197,10 @@ else:
                 if len(pivot) < 2:
                     st.warning(f"⏳ **More data needed.** You only have one period of data for {selected_cat}. The Running Baseline requires at least two periods to calculate your momentum. Log another session next week!")
                 else:
-                    pct_diff = pivot.pct_change() * 100
-                    
-                    # FIX: Safely neutralize divide-by-zero Infinity values
-                    pct_diff = pct_diff.replace([float('inf'), float('-inf')], float('nan'))
+                    # SAFELY PREVENT DIVIDE BY ZERO IN PANDAS
+                    diff = pivot.diff()
+                    denom = pivot.shift(1).replace(0, 1).abs()
+                    pct_diff = (diff / denom) * 100
                     
                     lower_is_better_games = ["On-Course 150-200", "On-Course 100-150", "On-Course 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
                     for col in pct_diff.columns:
@@ -1209,9 +1209,8 @@ else:
                             
                     category_momentum = pct_diff.mean(axis=1).dropna()
                     
-                    # Double-check that after dropping NaNs we still have data left to plot
                     if category_momentum.empty:
-                        st.info("No valid momentum data could be calculated (scores may have been zero). Keep logging!")
+                        st.info("No valid momentum data could be calculated. Keep logging!")
                     else:
                         chart_df = pd.DataFrame(category_momentum, columns=["Momentum Delta (%)"]).reset_index()
                         latest_momentum = category_momentum.iloc[-1]
