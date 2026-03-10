@@ -138,10 +138,17 @@ def load_all_logs(username):
             
         # 2. Broadly sweep and rename legacy games
         if 'game_name' in df.columns:
-            # This fixes the old Situational games
+            # Fix old Situational games
             df['game_name'] = df['game_name'].apply(lambda x: str(x).replace('On-Course', 'Situational Practice') if isinstance(x, str) else x)
-            # This instantly converts your old 2-8 Drill data into 2-7 Drill data
-            df['game_name'] = df['game_name'].replace({"2-8 Drill": "2-7 Drill"})
+            
+            # 🚨 NEW ADDITION: Normalize all historical names to the new standard 🚨
+            name_corrections = {
+                "2-8 Drill": "2-7 Drill",  # Your existing fix
+                "Par 21 WB": "Par 21wb",   # PDF fix
+                "Par 21 Wb": "Par 21wb",   # Extra safety catch
+                "Max SS/BS": "BS/SS"       # PDF fix
+            }
+            df['game_name'] = df['game_name'].replace(name_corrections)
             
         return df
     else:
