@@ -295,16 +295,34 @@ def render_on_course_performance(category):
         c3.metric("Shots Inside 3ft", f"{in3_pct:.0f}%")
 
     elif category == "Putting":
-        tp = sum(r.get('putting', {}).get('total_putts', 0) for r in raw_list)
-        sgp = sum(r.get('putting', {}).get('sg_putting', 0.0) for r in raw_list)
-        rounds = len([r for r in raw_list if r.get('putting', {}).get('total_putts', 0) > 0]) 
-        lt = sum(r.get('putting', {}).get('lag_putts_total', 0) for r in raw_list)
-        ls = sum(r.get('putting', {}).get('lag_putts_success', 0) for r in raw_list)
+        normalized_putts_list = []
+        sgp = 0.0
+        lt = 0
+        ls = 0
+        
+        for r in raw_list:
+            putts = r.get('putting', {}).get('total_putts', 0)
+            if putts > 0:
+                # Check if it was a 9 or 18 hole round (default to 18 just in case)
+                holes = r.get('holes_played', 18) 
+                
+                # Normalize 9-hole rounds to 18-hole equivalents
+                if holes == 9:
+                    normalized_putts_list.append(putts * 2)
+                else:
+                    normalized_putts_list.append(putts)
+                
+                sgp += r.get('putting', {}).get('sg_putting', 0.0)
+                lt += r.get('putting', {}).get('lag_putts_total', 0)
+                ls += r.get('putting', {}).get('lag_putts_success', 0)
+                
+        rounds = len(normalized_putts_list)
+        avg_putts_18 = sum(normalized_putts_list) / rounds if rounds > 0 else 0
         lag_pct = (ls / lt * 100) if lt > 0 else 0
         
         c1, c2, c3 = st.columns(3)
         c1.metric("Avg SG Putting (per round)", f"{(sgp/rounds):+.2f}" if rounds > 0 else "0.00")
-        c2.metric("Total Putts", tp)
+        c2.metric("Avg Putts (per 18)", f"{avg_putts_18:.1f}")
         c3.metric("Lag Putting Success", f"{lag_pct:.0f}%")
         
     st.divider()
