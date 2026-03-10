@@ -1624,10 +1624,19 @@ else:
             
             # --- DATA PREP ---
             df_cat = df_logs[df_logs['game_category'] == selected_cat].copy()
-            # Add this temporary line to see the raw data:
-            st.write("Raw Dates:", df_cat['created_at'].head())
-            # Example if your dates look like "2026-03-10"
-            df_cat['created_at'] = pd.to_datetime(df_cat['created_at'], format='%Y-%m-%d', errors='coerce')
+            # 1. Get the current user's dynamic timezone (defaults to UTC just in case)
+            # Note: Ensure 'timezone' matches the exact name you used in your login page session state!
+            user_tz = st.session_state.get('timezone', 'UTC')
+
+            # 2. Parse as UTC, 3. Convert to User's Timezone, 4. Strip the timezone tag for Streamlit
+            df_cat['created_at'] = (
+            pd.to_datetime(df_cat['created_at'], utc=True, errors='coerce')
+            .dt.tz_convert(user_tz)
+            .dt.tz_localize(None)
+            )
+
+            # Clean up: Drop any rows that had garbage data instead of real dates
+            df_cat = df_cat.dropna(subset=['created_at'])
             
             if timeline == "Weekly Averages":
                 df_cat['Period_Sort'] = df_cat['created_at'].dt.to_period('W').dt.start_time
