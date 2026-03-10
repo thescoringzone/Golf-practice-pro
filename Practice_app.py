@@ -426,11 +426,11 @@ else:
         
         combine_structure = {
             "Practice Rounds": ["Straight up", "5m game", "10m game"],
-            "Driving": ["10 Shot", "Max SS/BS"],
+            "Driving": ["10 Shot", "BS/SS"],
             "Scoring Zone Long": ["Situational Practice 150-200", "TM 150-200"],
             "Scoring Zone Mid": ["Situational Practice 100-150", "TM 100-150"],
             "Scoring Zone Short": ["Situational Practice 50-100", "TM 50-100"],
-            "Short Game": ["Par 21 WB", "20 to 50", "6ft Game"],
+            "Short Game": ["Par 21wb", "20 to 50", "6ft Game"],
             "Putting": ["Pace", "6-9-12", "2-7 Drill", "Green Reading"]
         }
 
@@ -513,7 +513,8 @@ else:
         st.write(f"*Download your 1-page Landscape PDF summary for Week {selected_week}.*")
         
         report_data = []
-        lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-7 Drill"]
+        # UPDATED: Changed "Par 21 WB" to "Par 21wb"
+        lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21wb", "6ft Game", "6-9-12", "2-7 Drill"]
 
         for cat, games in combine_structure.items():
             for game in games:
@@ -538,7 +539,8 @@ else:
                         pct_str = f"{-diff:+.1f} strks" 
                     report_data.append([cat, game, avg_str, best_str, pct_str])
 
-                elif game == "Max SS/BS":
+                # UPDATED: Changed "Max SS/BS" to "BS/SS"
+                elif game == "BS/SS":
                     cw_avg_ss, cw_avg_bs = cw_game['score_primary'].mean(), cw_game['score_secondary'].mean()
                     cw_best_ss, cw_best_bs = cw_game['score_primary'].max(), cw_game['score_secondary'].max()
                     avg_str, best_str = f"{cw_avg_ss:.0f}/{cw_avg_bs:.0f}", f"{cw_best_ss:.0f}/{cw_best_bs:.0f}"
@@ -555,7 +557,8 @@ else:
                     cw_best = cw_game['score_primary'].min() if is_lower_better else cw_game['score_primary'].max()
                     
                     if game in ["20 to 50"]: avg_str, best_str = f"{cw_avg:.0f}%", f"{cw_best:.0f}%"
-                    elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: avg_str, best_str = f"{cw_avg:.0f}", f"{cw_best:.0f}"
+                    # UPDATED: Changed "Par 21 WB" to "Par 21wb"
+                    elif game in ["Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: avg_str, best_str = f"{cw_avg:.0f}", f"{cw_best:.0f}"
                     else: avg_str, best_str = f"{cw_avg:.2f}", f"{cw_best:.2f}"
                         
                     pct_str = "-"
