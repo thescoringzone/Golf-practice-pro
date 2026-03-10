@@ -1741,7 +1741,7 @@ else:
                             avg = df_game['score_primary'].mean()
                             
                             if game in ["20 to 50"]: pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
-                            elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
+                            elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: pb_str, avg_str = f"{pb:.0f}", f"{avg:.1f}"
                             elif selected_cat == "Practice Rounds": pb_str, avg_str = f"{'+' if pb>0 else ''}{pb:.0f}", f"{'+' if avg>0 else ''}{avg:.1f}"
                             else: pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
                                 
