@@ -351,28 +351,37 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
     
     st.write("<br>", unsafe_allow_html=True)
     
-    # --- PUNCHY, PROFESSIONAL APP DESCRIPTION (NO EMOJIS) ---
+    # --- PUNCHY, PROFESSIONAL APP DESCRIPTION ---
+    # We removed the <br> tags here so mobile stacking looks perfectly balanced
     col_t1, col_t2 = st.columns(2)
     
     with col_t1:
         st.markdown("#### Intentional Execution")
-        st.caption("Replace aimless range sessions with structured, data-driven combines that leave absolutely no stone unturned.")
-        
-        st.write("<br>", unsafe_allow_html=True)
+        st.caption("Guarantee your success every day. Win the day by being better than yesterday’s results, process, or mindset. Make every session count.")
         
         st.markdown("#### Practice to Tournament")
-        st.caption("Train under strict scoring constraints so your execution and resilience hold up under real tournament pressure.")
+        st.caption("Practice what truly matters. Master the specific skills and scoring constraints that directly translate to lower scores on the course.")
 
     with col_t2:
         st.markdown("#### Built-In Accountability")
-        st.caption("Dashboards undergo a hard reset every Sunday at midnight. Stay locked in and stack productive weeks together.")
-        
-        st.write("<br>", unsafe_allow_html=True)
+        st.caption("Dashboards undergo a hard reset every Sunday at midnight. Being completely accountable to yourself separates you from the competition before a shot is even hit.")
         
         st.markdown("#### Compounding Progression")
-        st.caption("Track your progress week to week, month to month, and period to period. Carry your successes forward and turn your learnings into wisdom.")
+        st.caption("Track your progress week to week, month to month, and period to period. Carry your successes forward and turn your daily learnings into permanent wisdom.")
         
     st.write("<br><br>", unsafe_allow_html=True)
+    
+    # --- THE LEGEND QUOTE ---
+    st.markdown("""
+        <div style='text-align: center; margin-bottom: 2rem;'>
+            <p style='font-size: 1.2rem; font-style: italic; color: #6b7280; font-weight: 500; letter-spacing: 0.5px;'>
+                "Confidence is a direct result of preparation."
+            </p>
+            <p style='font-size: 0.9rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 2px; font-weight: 600;'>
+                — Tiger Woods
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
     
     # --- LOGIN BOX ---
     col1, col2, col3 = st.columns([1, 2, 1])
