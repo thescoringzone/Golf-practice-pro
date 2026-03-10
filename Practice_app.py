@@ -136,9 +136,12 @@ def load_all_logs(username):
         if 'game_category' in df.columns:
             df['game_category'] = df['game_category'].replace({"On-Course": "Practice Rounds"})
             
-        # 2. Broadly sweep and rename all "On-Course" situational games
+        # 2. Broadly sweep and rename legacy games
         if 'game_name' in df.columns:
+            # This fixes the old Situational games
             df['game_name'] = df['game_name'].apply(lambda x: str(x).replace('On-Course', 'Situational Practice') if isinstance(x, str) else x)
+            # This instantly converts your old 2-8 Drill data into 2-7 Drill data
+            df['game_name'] = df['game_name'].replace({"2-8 Drill": "2-7 Drill"})
             
         return df
     else:
@@ -153,7 +156,7 @@ def render_icon_grid(df_game, game_name):
         return
 
     df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
-    lower_is_better = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
+    lower_is_better = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-7 Drill"]
 
     st.markdown("### 📜 Recent Sessions")
     
@@ -192,7 +195,7 @@ def render_icon_grid(df_game, game_name):
             elif game_name in ["20 to 50"]: 
                 score_str = f"{row['score_primary']:.0f}%" 
                 if delta_str and "Even" not in delta_str: delta_str += "%"
-            elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: 
+            elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: 
                 score_str = f"{row['score_primary']:.0f}" 
             elif row.get('game_category') == "Practice Rounds":
                 raw = row.get('raw_data', {})
@@ -410,7 +413,7 @@ else:
             "Scoring Zone Mid": ["Situational Practice 100-150", "TM 100-150"],
             "Scoring Zone Short": ["Situational Practice 50-100", "TM 50-100"],
             "Short Game": ["Par 21 WB", "20 to 50", "6ft Game"],
-            "Putting": ["Pace", "6-9-12", "2-8 Drill"]
+            "Putting": ["Pace", "6-9-12", "2-7 Drill", "Green Reading"]
         }
 
         completed_games = df_cw['game_name'].dropna().unique().tolist()
@@ -466,7 +469,7 @@ else:
                 
                 if gn == "Max SS/BS": return f"{p:.0f} / {s:.0f}"
                 elif gn in ["20 to 50"]: return f"{p:.0f}%"
-                elif gn in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: return f"{p:.0f}"
+                elif gn in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: return f"{p:.0f}"
                 else: return f"{p:.2f}"
                 
             df_display = df_cw_sort.copy()
@@ -492,7 +495,7 @@ else:
         st.write(f"*Download your 1-page Landscape PDF summary for Week {selected_week}.*")
         
         report_data = []
-        lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill"]
+        lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-7 Drill"]
 
         for cat, games in combine_structure.items():
             for game in games:
@@ -534,7 +537,7 @@ else:
                     cw_best = cw_game['score_primary'].min() if is_lower_better else cw_game['score_primary'].max()
                     
                     if game in ["20 to 50"]: avg_str, best_str = f"{cw_avg:.0f}%", f"{cw_best:.0f}%"
-                    elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: avg_str, best_str = f"{cw_avg:.0f}", f"{cw_best:.0f}"
+                    elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: avg_str, best_str = f"{cw_avg:.0f}", f"{cw_best:.0f}"
                     else: avg_str, best_str = f"{cw_avg:.2f}", f"{cw_best:.2f}"
                         
                     pct_str = "-"
@@ -1444,9 +1447,10 @@ else:
         
         if 'mode_putt_pace' not in st.session_state: st.session_state.mode_putt_pace = "grid"
         if 'mode_putt_6912' not in st.session_state: st.session_state.mode_putt_6912 = "grid"
-        if 'mode_putt_28' not in st.session_state: st.session_state.mode_putt_28 = "grid"
+        if 'mode_putt_27' not in st.session_state: st.session_state.mode_putt_27 = "grid"
+        if 'mode_putt_gr' not in st.session_state: st.session_state.mode_putt_gr = "grid"
 
-        drill_opts = ["Pace", "6-9-12", "2-8 Drill", "On-Course Stats"]
+        drill_opts = ["Pace", "6-9-12", "2-7 Drill", "Green Reading", "On-Course Stats"]
         if st.session_state.get('putt_radio') not in drill_opts: st.session_state.putt_radio = "Pace"
         
         selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.putt_radio), horizontal=True, label_visibility="collapsed")
@@ -1516,36 +1520,68 @@ else:
                     st.session_state.mode_putt_6912 = "grid"
                     st.rerun()
 
-        elif selected_game == "2-8 Drill":
-            st.write("*Ladder drill: Make a putt from 2ft, 3ft, 4ft, 5ft, 6ft, 7ft, and 8ft consecutively.*")
+        elif selected_game == "2-7 Drill":
+            st.write("*Ladder drill: Make a putt from 2ft, 3ft, 4ft, 5ft, 6ft, and 7ft consecutively.*")
             st.caption("**Rules:** If you miss, you must start over at 2ft. Record the total number of putts it took to complete the ladder. *Note: You can randomise the order of distances to increase difficulty.*")
             
-            if st.session_state.mode_putt_28 == "grid":
-                if st.button("➕ New Entry", key="new_putt_28", type="primary"):
-                    st.session_state.mode_putt_28 = "entry"
+            if st.session_state.mode_putt_27 == "grid":
+                if st.button("➕ New Entry", key="new_putt_27", type="primary"):
+                    st.session_state.mode_putt_27 = "entry"
                     st.rerun()
                 st.divider()
-                df_putt_28 = df_logs[df_logs['game_name'] == "2-8 Drill"]
-                render_icon_grid(df_putt_28, "2-8 Drill")
+                df_putt_27 = df_logs[df_logs['game_name'] == "2-7 Drill"]
+                render_icon_grid(df_putt_27, "2-7 Drill")
                 
-            elif st.session_state.mode_putt_28 == "entry":
-                if st.button("🔙 Back to Previous Entries", key="back_putt_28"):
-                    st.session_state.mode_putt_28 = "grid"
+            elif st.session_state.mode_putt_27 == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_putt_27"):
+                    st.session_state.mode_putt_27 = "grid"
                     st.rerun()
                 st.divider()
                 
-                attempts = st.number_input("Total Putts Hit to Complete Ladder", min_value=7, value=15, step=1)
+                attempts = st.number_input("Total Putts Hit to Complete Ladder", min_value=6, value=12, step=1)
                 
                 today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
-                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_28")
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_27")
                 st.write("<br>", unsafe_allow_html=True)
 
-                if st.button("💾 Save 2-8 Drill Log", type="primary", use_container_width=True):
-                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "2-8 Drill", "score_primary": attempts, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
+                if st.button("💾 Save 2-7 Drill Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "2-7 Drill", "score_primary": attempts, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
                     supabase.table("practice_logs").insert(data).execute()
                     st.success("Saved!")
-                    st.session_state.mode_putt_28 = "grid"
+                    st.session_state.mode_putt_27 = "grid"
+                    st.rerun()
+
+        elif selected_game == "Green Reading":
+            st.write("*Find a random putt within 10ft. Read the line, place a tee, and test using a start-line aid (like a Perfect Putter).*")
+            st.caption("**Rules:** You have 3 lives. Every missed read costs a life. Record the total number of correct reads you achieved.")
+            
+            if st.session_state.mode_putt_gr == "grid":
+                if st.button("➕ New Entry", key="new_putt_gr", type="primary"):
+                    st.session_state.mode_putt_gr = "entry"
+                    st.rerun()
+                st.divider()
+                df_putt_gr = df_logs[df_logs['game_name'] == "Green Reading"]
+                render_icon_grid(df_putt_gr, "Green Reading")
+                
+            elif st.session_state.mode_putt_gr == "entry":
+                if st.button("🔙 Back to Previous Entries", key="back_putt_gr"):
+                    st.session_state.mode_putt_gr = "grid"
+                    st.rerun()
+                st.divider()
+                
+                correct_reads = st.number_input("Total Correct Reads", min_value=0, value=5, step=1)
+                
+                today_date = get_local_time_info()[0].date()
+                monday_date = today_date - datetime.timedelta(days=today_date.weekday())
+                session_date = st.date_input("Date of Session", value=today_date, min_value=monday_date, max_value=today_date, key="date_putt_gr")
+                st.write("<br>", unsafe_allow_html=True)
+
+                if st.button("💾 Save Green Reading Log", type="primary", use_container_width=True):
+                    data = {"user_name": st.session_state.current_user, "game_category": "Putting", "game_name": "Green Reading", "score_primary": correct_reads, "week_number": current_week, "created_at": f"{session_date}T12:00:00Z"}
+                    supabase.table("practice_logs").insert(data).execute()
+                    st.success("Saved!")
+                    st.session_state.mode_putt_gr = "grid"
                     st.rerun()
                     
         elif selected_game == "On-Course Stats":
@@ -1686,7 +1722,7 @@ else:
                             avg = df_game['score_primary'].mean()
                             
                             if game in ["20 to 50"]: pb_str, avg_str = f"{pb:.0f}%", f"{avg:.0f}%"
-                            elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"]: pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
+                            elif game in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: pb_str, avg_str = f"{pb:.0f}", f"{avg:.0f}"
                             elif selected_cat == "Practice Rounds": pb_str, avg_str = f"{'+' if pb>0 else ''}{pb:.0f}", f"{'+' if avg>0 else ''}{avg:.1f}"
                             else: pb_str, avg_str = f"{pb:.2f}", f"{avg:.2f}"
                                 
