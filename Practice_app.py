@@ -1624,7 +1624,8 @@ else:
             
             # --- DATA PREP ---
             df_cat = df_logs[df_logs['game_category'] == selected_cat].copy()
-            df_cat['created_at'] = pd.to_datetime(df_cat['created_at'])
+            # Example if your dates look like "2026-03-10"
+            df_cat['created_at'] = pd.to_datetime(df_cat['created_at'], format='%Y-%m-%d', errors='coerce')
             
             if timeline == "Weekly Averages":
                 df_cat['Period_Sort'] = df_cat['created_at'].dt.to_period('W').dt.start_time
