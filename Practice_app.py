@@ -351,22 +351,26 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
     
     st.write("<br>", unsafe_allow_html=True)
     
-    # --- PUNCHY, DARK-MODE-SAFE APP DESCRIPTION ---
+    # --- PUNCHY, PROFESSIONAL APP DESCRIPTION (NO EMOJIS) ---
     col_t1, col_t2 = st.columns(2)
     
     with col_t1:
-        st.markdown("#### 🎯 Intentional Execution")
+        st.markdown("#### Intentional Execution")
         st.caption("Replace aimless range sessions with structured, data-driven combines that leave absolutely no stone unturned.")
         
-        st.markdown("#### 🏆 Practice to Tournament")
+        st.write("<br>", unsafe_allow_html=True)
+        
+        st.markdown("#### Practice to Tournament")
         st.caption("Train under strict scoring constraints so your execution and resilience hold up under real tournament pressure.")
 
     with col_t2:
-        st.markdown("#### 🗓️ Built-In Accountability")
+        st.markdown("#### Built-In Accountability")
         st.caption("Dashboards undergo a hard reset every Sunday at midnight. Stay locked in and stack productive weeks together.")
         
-        st.markdown("#### 📈 Track What Matters")
-        st.caption("Quantify every facet of your game to ruthlessly expose hidden weaknesses and validate your strengths.")
+        st.write("<br>", unsafe_allow_html=True)
+        
+        st.markdown("#### Compounding Progression")
+        st.caption("Track your progress week to week, month to month, and period to period. Carry your successes forward and turn your learnings into wisdom.")
         
     st.write("<br><br>", unsafe_allow_html=True)
     
@@ -385,10 +389,6 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
                     st.session_state.timezone = selected_tz
                     st.session_state.page = "Weekly Dashboard"
                     st.rerun()
-
-# ==========================================
-# 6. ROUTING: SECURE PLATFORM & SIDEBAR
-# ==========================================
 
 # ==========================================
 # 6. ROUTING: SECURE PLATFORM & SIDEBAR
