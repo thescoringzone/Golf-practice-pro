@@ -564,10 +564,13 @@ else:
                     is_lower_better = game in lower_is_better_games
                     cw_best = cw_game['score_primary'].min() if is_lower_better else cw_game['score_primary'].max()
                     
-                    if game in ["20 to 50"]: avg_str, best_str = f"{cw_avg:.0f}%", f"{cw_best:.0f}%"
-                    # UPDATED: Changed "Par 21 WB" to "Par 21wb"
-                    elif game in ["Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: avg_str, best_str = f"{cw_avg:.0f}", f"{cw_best:.0f}"
-                    else: avg_str, best_str = f"{cw_avg:.2f}", f"{cw_best:.2f}"
+                    if game in ["20 to 50"]: 
+                        avg_str, best_str = f"{cw_avg:.0f}%", f"{cw_best:.0f}%"
+                    elif game in ["Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: 
+                        # FIX: Give the average 1 decimal place, keep the best score as a whole number
+                        avg_str, best_str = f"{cw_avg:.1f}", f"{cw_best:.0f}"
+                    else: 
+                        avg_str, best_str = f"{cw_avg:.2f}", f"{cw_best:.2f}"
                         
                     pct_str = "-"
                     if not lw_game.empty:
