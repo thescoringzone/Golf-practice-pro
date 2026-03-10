@@ -346,10 +346,31 @@ def render_on_course_performance(category, df_logs):
 # 5. ROUTING: LOGIN GATE
 # ==========================================
 if st.session_state.page == "Login" or not st.session_state.current_user:
-    st.markdown("<h1 style='text-align: center; font-size: 3.8em; font-weight: 800; margin-top: 5%; letter-spacing: -1px;'>The Practice Club</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #6b7280; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; font-size: 1.1em;'>Tour Pro Edition</h3>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; font-size: 3.8em; font-weight: 800; margin-top: 3%; letter-spacing: -1px;'>The Practice Club</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: gray; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; font-size: 1.1em;'>Tour Pro Edition</h3>", unsafe_allow_html=True)
+    
+    st.write("<br>", unsafe_allow_html=True)
+    
+    # --- PUNCHY, DARK-MODE-SAFE APP DESCRIPTION ---
+    col_t1, col_t2 = st.columns(2)
+    
+    with col_t1:
+        st.markdown("#### 🎯 Intentional Execution")
+        st.caption("Replace aimless range sessions with structured, data-driven combines that leave absolutely no stone unturned.")
+        
+        st.markdown("#### 🏆 Practice to Tournament")
+        st.caption("Train under strict scoring constraints so your execution and resilience hold up under real tournament pressure.")
+
+    with col_t2:
+        st.markdown("#### 🗓️ Built-In Accountability")
+        st.caption("Dashboards undergo a hard reset every Sunday at midnight. Stay locked in and stack productive weeks together.")
+        
+        st.markdown("#### 📈 Track What Matters")
+        st.caption("Quantify every facet of your game to ruthlessly expose hidden weaknesses and validate your strengths.")
+        
     st.write("<br><br>", unsafe_allow_html=True)
     
+    # --- LOGIN BOX ---
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.container(border=True):
@@ -364,6 +385,10 @@ if st.session_state.page == "Login" or not st.session_state.current_user:
                     st.session_state.timezone = selected_tz
                     st.session_state.page = "Weekly Dashboard"
                     st.rerun()
+
+# ==========================================
+# 6. ROUTING: SECURE PLATFORM & SIDEBAR
+# ==========================================
 
 # ==========================================
 # 6. ROUTING: SECURE PLATFORM & SIDEBAR
@@ -411,30 +436,11 @@ else:
     # PAGE: WEEKLY DASHBOARD
     # ==========================================
     elif st.session_state.page == "Weekly Dashboard":
-        # --- NEW DASHBOARD HEADER ---
-        st.markdown("<p style='font-size: 1.15rem; color: #374151; margin-bottom: 2.5rem;'>Welcome to <b>The Practice Club</b>. This platform is meticulously engineered to ensure you <b>practice smarter than your competition</b>. By logging highly constrained, data-driven sessions, you bridge the gap between casual practice and elite performance.</p>", unsafe_allow_html=True)
+        st.title("📊 Weekly Dashboard")
+        st.write("*Practice smarter. Track your combines, review your progress, and download your Caddie Report.*")
+        st.write("<br>", unsafe_allow_html=True)
         
-        # 2x2 Grid for professional, scannable reading
-        hc1, hc2 = st.columns(2)
-        
-        with hc1:
-            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Comprehensive Development</h4>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.8rem; line-height: 1.5;'>From driver speed thresholds to pressure-tested up-and-downs, these curated combine drills leave absolutely no stone unturned. Every facet of your game is quantified, ruthlessly exposing hidden weaknesses and validating your strengths.</p>", unsafe_allow_html=True)
-            
-            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Built-In Accountability</h4>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;'>To cultivate discipline, your combine dashboard undergoes a hard reset every Sunday at midnight. This forces a consistent, weekly commitment to your training schedule, allowing you to stack highly productive weeks together over the season.</p>", unsafe_allow_html=True)
-
-        with hc2:
-            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Intentional Execution</h4>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.8rem; line-height: 1.5;'>Eliminate aimless practice. By replacing passive reps with highly structured, target-backed drills, you maximize the return on your time investment and systematically elevate your mechanical and mental baseline.</p>", unsafe_allow_html=True)
-            
-            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Practice to Tournament Translation</h4>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;'>The ultimate goal is competitive execution. The strict constraints and scoring systems within this app simulate real pressure, ensuring the resilience and success you build in practice translates directly into your tournament results.</p>", unsafe_allow_html=True)
-            
-        st.divider()
-        # ----------------------------
-        
-        # Much safer week calculation now that dates are perfectly clean
+        # (Your dynamic time engine code starts right here...)
         df_logs['True_Week'] = df_logs['created_at'].dt.isocalendar().week.astype(int)
         df_logs['True_Year'] = df_logs['created_at'].dt.isocalendar().year.astype(int)
         
