@@ -411,8 +411,28 @@ else:
     # PAGE: WEEKLY DASHBOARD
     # ==========================================
     elif st.session_state.page == "Weekly Dashboard":
-        st.title("📊 Weekly Dashboard")
-        st.write("Track your practice completion and download your weekly reports.")
+        # --- NEW DASHBOARD HEADER ---
+        st.markdown("<p style='font-size: 1.15rem; color: #374151; margin-bottom: 2.5rem;'>Welcome to <b>The Practice Club</b>. This platform is meticulously engineered to ensure you <b>practice smarter than your competition</b>. By logging highly constrained, data-driven sessions, you bridge the gap between casual practice and elite performance.</p>", unsafe_allow_html=True)
+        
+        # 2x2 Grid for professional, scannable reading
+        hc1, hc2 = st.columns(2)
+        
+        with hc1:
+            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Comprehensive Development</h4>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.8rem; line-height: 1.5;'>From driver speed thresholds to pressure-tested up-and-downs, these curated combine drills leave absolutely no stone unturned. Every facet of your game is quantified, ruthlessly exposing hidden weaknesses and validating your strengths.</p>", unsafe_allow_html=True)
+            
+            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Built-In Accountability</h4>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;'>To cultivate discipline, your combine dashboard undergoes a hard reset every Sunday at midnight. This forces a consistent, weekly commitment to your training schedule, allowing you to stack highly productive weeks together over the season.</p>", unsafe_allow_html=True)
+
+        with hc2:
+            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Intentional Execution</h4>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.8rem; line-height: 1.5;'>Eliminate aimless practice. By replacing passive reps with highly structured, target-backed drills, you maximize the return on your time investment and systematically elevate your mechanical and mental baseline.</p>", unsafe_allow_html=True)
+            
+            st.markdown("<h4 style='color: #111827; margin-bottom: 0.3rem; font-size: 1.1rem;'>Practice to Tournament Translation</h4>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #4b5563; font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;'>The ultimate goal is competitive execution. The strict constraints and scoring systems within this app simulate real pressure, ensuring the resilience and success you build in practice translates directly into your tournament results.</p>", unsafe_allow_html=True)
+            
+        st.divider()
+        # ----------------------------
         
         # Much safer week calculation now that dates are perfectly clean
         df_logs['True_Week'] = df_logs['created_at'].dt.isocalendar().week.astype(int)
