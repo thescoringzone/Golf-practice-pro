@@ -145,11 +145,17 @@ def load_all_logs(username):
             }
             df['game_name'] = df['game_name'].replace(name_corrections)
             
-        # 🚨 NEW: GLOBAL TIMEZONE AND DATE FIX 🚨
-        # This protects the ENTIRE APP from bad dates and calculates the true local time immediately.
+        # 🚨 NEW: GLOBAL TIMEZONE AND DATE FIX (WITH RESCUE MISSION) 🚨
         user_tz = st.session_state.get('timezone', 'UTC')
-        df['created_at'] = pd.to_datetime(df['created_at'], utc=True, errors='coerce').dt.tz_convert(user_tz).dt.tz_localize(None)
-        df = df.dropna(subset=['created_at']) # Destroys any corrupted data so it doesn't bleed into your PDF
+        
+        # 1. Safely parse dates (bad dates become NaT instead of crashing)
+        df['created_at'] = pd.to_datetime(df['created_at'], utc=True, errors='coerce')
+        
+        # 2. RESCUE MISSION: Catch those unreadable legacy Practice Round dates and assign them today's date!
+        df['created_at'] = df['created_at'].fillna(pd.Timestamp.utcnow())
+        
+        # 3. Convert to local timezone and strip the tag for charting
+        df['created_at'] = df['created_at'].dt.tz_convert(user_tz).dt.tz_localize(None)
             
         return df
     else:
@@ -234,7 +240,108 @@ def render_icon_grid(df_game, game_name):
                     if st.button("Yes", key=f"del_{row['id']}", type="primary", use_container_width=True):
                         supabase.table("practice_logs").delete().eq("id", row['id']).execute()
                         st.rerun()
+                        
+def render_on_course_performance(category, df_logs):
+    st.write(f"*These statistics are automatically aggregated from your logged **Practice Rounds**.*")
+    
+    # Pull all practice rounds
+    pr_df = df_logs[df_logs['game_category'] == "Practice Rounds"]
+    
+    if pr_df.empty: 
+        st.info("No Practice Rounds logged yet. Head over to the Practice Rounds page to log your first round!")
+        if st.button("➡️ Go to Practice Rounds", key=f"go_pr_empty_{category}", type="primary"):
+            st.session_state.page = "Practice Rounds"
+            st.rerun()
+        return
+        
+    # Safely extract the raw data dicts
+    raw_list = [r for r in pr_df['raw_data'].tolist() if isinstance(r, dict)]
+    if not raw_list: return
+    
+    st.write("<br>", unsafe_allow_html=True)
+    
+    if category == "Driving":
+        fw = sum(r.get('driving', {}).get('fairways_hit', 0) for r in raw_list)
+        tee = sum(r.get('driving', {}).get('tee_shots', 0) for r in raw_list)
+        acc = (fw / tee * 100) if tee > 0 else 0
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Fairways Hit", fw)
+        c2.metric("Total Tee Shots", tee)
+        c3.metric("FW Accuracy", f"{acc:.0f}%")
+        
+    elif category == "Scoring Zone Long":
+        s = sum(r.get('scoring_zone', {}).get('szl_score', 0) for r in raw_list)
+        n = sum(r.get('scoring_zone', {}).get('szl_shots', 0) for r in raw_list)
+        avg = s/n if n > 0 else 0
+        c1, c2 = st.columns(2)
+        c1.metric("Total Score to Par (150-200)", f"{'+' if s>0 else ''}{s}")
+        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
 
+    elif category == "Scoring Zone Mid":
+        s = sum(r.get('scoring_zone', {}).get('szm_score', 0) for r in raw_list)
+        n = sum(r.get('scoring_zone', {}).get('szm_shots', 0) for r in raw_list)
+        avg = s/n if n > 0 else 0
+        c1, c2 = st.columns(2)
+        c1.metric("Total Score to Par (100-150)", f"{'+' if s>0 else ''}{s}")
+        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+    elif category == "Scoring Zone Short":
+        s = sum(r.get('scoring_zone', {}).get('szs_score', 0) for r in raw_list)
+        n = sum(r.get('scoring_zone', {}).get('szs_shots', 0) for r in raw_list)
+        avg = s/n if n > 0 else 0
+        c1, c2 = st.columns(2)
+        c1.metric("Total Score to Par (50-100)", f"{'+' if s>0 else ''}{s}")
+        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
+
+    elif category == "Short Game":
+        tot = sum(r.get('short_game', {}).get('total_shots', 0) for r in raw_list)
+        ud = sum(r.get('short_game', {}).get('up_and_downs', 0) for r in raw_list)
+        in6 = sum(r.get('short_game', {}).get('inside_6ft', 0) for r in raw_list)
+        in3 = sum(r.get('short_game', {}).get('inside_3ft', 0) for r in raw_list)
+        
+        scr_pct = (ud / tot * 100) if tot > 0 else 0
+        in6_pct = (in6 / tot * 100) if tot > 0 else 0
+        in3_pct = (in3 / tot * 100) if tot > 0 else 0
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Scrambling (Up & Down)", f"{scr_pct:.0f}%")
+        c2.metric("Shots Inside 6ft", f"{in6_pct:.0f}%")
+        c3.metric("Shots Inside 3ft", f"{in3_pct:.0f}%")
+
+    elif category == "Putting":
+        normalized_putts_list = []
+        sgp = 0.0
+        lt = 0
+        ls = 0
+        
+        for r in raw_list:
+            putts = r.get('putting', {}).get('total_putts', 0)
+            if putts > 0:
+                holes = r.get('holes_played', 18) 
+                if holes == 9:
+                    normalized_putts_list.append(putts * 2)
+                else:
+                    normalized_putts_list.append(putts)
+                
+                sgp += r.get('putting', {}).get('sg_putting', 0.0)
+                lt += r.get('putting', {}).get('lag_putts_total', 0)
+                ls += r.get('putting', {}).get('lag_putts_success', 0)
+                
+        rounds = len(normalized_putts_list)
+        avg_putts_18 = sum(normalized_putts_list) / rounds if rounds > 0 else 0
+        lag_pct = (ls / lt * 100) if lt > 0 else 0
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Avg SG Putting (per round)", f"{(sgp/rounds):+.2f}" if rounds > 0 else "0.00")
+        c2.metric("Avg Putts (per 18)", f"{avg_putts_18:.1f}")
+        c3.metric("Lag Putting Success", f"{lag_pct:.0f}%")
+        
+    st.divider()
+    if st.button("➕ Log More On-Course Data", key=f"nav_to_pr_{category}", type="primary"):
+        st.session_state.page = "Practice Rounds"
+        st.session_state.mode_pr = "entry"
+        st.rerun()
+        
 # ==========================================
 # 5. ROUTING: LOGIN GATE
 # ==========================================
@@ -917,8 +1024,8 @@ else:
                     st.session_state.mode_ssbs = "entry"
                     st.rerun()
                 st.divider()
-                df_ssbs = df_logs[df_logs['game_name'] == "Max SS/BS"]
-                render_icon_grid(df_ssbs, "Max SS/BS")
+                df_ssbs = df_logs[df_logs['game_name'] == "BS/SS"]
+                render_icon_grid(df_ssbs, "BS/SS")
                 
             elif st.session_state.mode_ssbs == "entry":
                 if st.button("🔙 Back to Previous Entries", key="back_ssbs"):
@@ -946,7 +1053,7 @@ else:
                     st.rerun()
                     
         elif selected_game == "On-Course Stats":
-            render_on_course_performance("Driving")
+            render_on_course_performance("Driving", df_logs)
 
     # ==========================================
     # PAGE: SCORING ZONE LONG
@@ -1032,7 +1139,7 @@ else:
                     st.rerun()
                     
         elif selected_game == "On-Course Stats":
-            render_on_course_performance("Scoring Zone Long")
+            render_on_course_performance("Scoring Zone Long", df_logs)
 
     # ==========================================
     # PAGE: SCORING ZONE MID
@@ -1118,7 +1225,7 @@ else:
                     st.rerun()
                     
         elif selected_game == "On-Course Stats":
-            render_on_course_performance("Scoring Zone Mid")
+            render_on_course_performance("Scoring Zone Mid", df_logs)
 
     # ==========================================
     # PAGE: SCORING ZONE SHORT
@@ -1204,7 +1311,7 @@ else:
                     st.rerun()
                     
         elif selected_game == "On-Course Stats":
-            render_on_course_performance("Scoring Zone Short")
+            render_on_course_performance("Scoring Zone Short", df_logs)
 
     # ==========================================
     # PAGE: SHORT GAME
@@ -1233,8 +1340,8 @@ else:
                     st.session_state.mode_sg_par21 = "entry"
                     st.rerun()
                 st.divider()
-                df_sg_par21 = df_logs[df_logs['game_name'] == "Par 21 WB"]
-                render_icon_grid(df_sg_par21, "Par 21 WB")
+                df_sg_par21 = df_logs[df_logs['game_name'] == "Par 21wb"]
+                render_icon_grid(df_sg_par21, "Par 21wb")
                 
             elif st.session_state.mode_sg_par21 == "entry":
                 if st.button("🔙 Back to Previous Entries", key="back_sg_par21"):
@@ -1362,7 +1469,7 @@ else:
                     st.rerun()
                     
         elif selected_game == "On-Course Stats":
-            render_on_course_performance("Short Game")
+            render_on_course_performance("Short Game", df_logs)
 
     # ==========================================
     # PAGE: PUTTING
@@ -1511,7 +1618,7 @@ else:
                     st.rerun()
                     
         elif selected_game == "On-Course Stats":
-            render_on_course_performance("Putting")
+            render_on_course_performance("Putting", df_logs)
 
     # ==========================================
     # PAGE: YOUR PRACTICE TRENDS
