@@ -1522,7 +1522,7 @@ else:
 
         elif selected_game == "2-7 Drill":
             st.write("*Ladder drill: Make a putt from 2ft, 3ft, 4ft, 5ft, 6ft, and 7ft consecutively.*")
-            st.caption("**Rules:** If you miss, you must start over at 2ft. Record the total number of putts it took to complete the ladder. *Note: You can randomise the order of distances to increase difficulty.*")
+            st.caption("**Rules:** If you miss, you must start over at 2ft. Record the total number of **tries** it took to successfully complete the ladder. (1 try = completing it flawlessly on the first go). *Note: You can randomise the order of distances to increase difficulty.*")
             
             if st.session_state.mode_putt_27 == "grid":
                 if st.button("➕ New Entry", key="new_putt_27", type="primary"):
@@ -1538,7 +1538,8 @@ else:
                     st.rerun()
                 st.divider()
                 
-                attempts = st.number_input("Total Putts Hit to Complete Ladder", min_value=6, value=12, step=1)
+                # UPDATED: Changed label, and set min_value to 1
+                attempts = st.number_input("Total Tries to Complete Ladder", min_value=1, value=3, step=1)
                 
                 today_date = get_local_time_info()[0].date()
                 monday_date = today_date - datetime.timedelta(days=today_date.weekday())
