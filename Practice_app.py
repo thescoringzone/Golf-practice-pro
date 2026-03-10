@@ -433,7 +433,7 @@ else:
         df_lw = df_logs[(df_logs['True_Week'] == lw_week) & (df_logs['True_Year'] == lw_year)].copy()
         
         combine_structure = {
-            "Practice Rounds": ["Straight up", "5m game", "10m game"],
+            "Practice Rounds": ["Straight up", "5m game", "10m game", "30m Game"],
             "Driving": ["10 Shot", "BS/SS"],
             "Scoring Zone Long": ["Situational Practice 150-200", "TM 150-200"],
             "Scoring Zone Mid": ["Situational Practice 100-150", "TM 100-150"],
@@ -842,7 +842,8 @@ else:
         if 'edit_pr_data' not in st.session_state: st.session_state.edit_pr_data = {}
         
         st.subheader("1. Select Your Game Format")
-        game_options = ["Straight up", "5m game", "10m game"]
+        # ADDED "30m Game" TO THE LIST BELOW:
+        game_options = ["Straight up", "5m game", "10m game", "30m Game"] 
         default_idx = game_options.index(st.session_state.pr_game_select) if st.session_state.pr_game_select in game_options else 0
         
         pr_game = st.selectbox("Game Type", game_options, index=default_idx, label_visibility="collapsed", key="pr_game_selector_main")
@@ -854,6 +855,9 @@ else:
             st.info("**5m game:** Every GIR hit outside of 5m/17ft must be taken off the green for a short game shot at least 3 paces off the green. Short game shots should alternate between fairway shot, first-cut shots, bunker shots, and rough-shots.")
         elif pr_game == "10m game":
             st.info("**10m game:** On all odd holes, place your drive in a position 10m worse than the original position, either through rough/bunker lies or distance from the hole. On all even holes, place your approach shot in a position 10m worse than the original position in-line with the hole.")
+        # 🚨 ADDED YOUR NEW DESCRIPTION HERE 🚨
+        elif pr_game == "30m Game":
+            st.info("**30m Game:** Drag back your tee shot 30 meters on every hole. Have fun.")
 
         if st.session_state.mode_pr == "grid":
             if st.button("➕ Log New Practice Round", key="new_pr_btn", type="primary"):
@@ -1786,8 +1790,8 @@ else:
                 df_cat['Period_Sort'] = df_cat['created_at'].dt.to_period('Y').dt.start_time
                 df_cat['Group'] = df_cat['created_at'].dt.strftime('%Y')
                 
-            # UPDATED: "Par 21 WB" to "Par 21wb" and "2-8 Drill" to "2-7 Drill"
-            lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21wb", "6ft Game", "6-9-12", "2-7 Drill", "Straight up", "5m game", "10m game"]
+            # ADDED "30m Game" TO THE END OF THIS LIST
+            lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21wb", "6ft Game", "6-9-12", "2-7 Drill", "Straight up", "5m game", "10m game", "30m Game"]
 
             st.divider()
             
