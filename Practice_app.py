@@ -132,23 +132,24 @@ def load_all_logs(username):
             df['raw_data'] = df['raw_data'].apply(lambda x: x if isinstance(x, dict) else (json.loads(x) if isinstance(x, str) else {}))
             
         # --- CREATIVE WORKAROUND: THE AUTO-TRANSLATOR ---
-        # 1. Fix old Practice Round categories 
         if 'game_category' in df.columns:
             df['game_category'] = df['game_category'].replace({"On-Course": "Practice Rounds"})
             
-        # 2. Broadly sweep and rename legacy games
         if 'game_name' in df.columns:
-            # Fix old Situational games
             df['game_name'] = df['game_name'].apply(lambda x: str(x).replace('On-Course', 'Situational Practice') if isinstance(x, str) else x)
-            
-            # 🚨 NEW ADDITION: Normalize all historical names to the new standard 🚨
             name_corrections = {
-                "2-8 Drill": "2-7 Drill",  # Your existing fix
-                "Par 21 WB": "Par 21wb",   # PDF fix
-                "Par 21 Wb": "Par 21wb",   # Extra safety catch
-                "Max SS/BS": "BS/SS"       # PDF fix
+                "2-8 Drill": "2-7 Drill",  
+                "Par 21 WB": "Par 21wb",   
+                "Par 21 Wb": "Par 21wb",   
+                "Max SS/BS": "BS/SS"       
             }
             df['game_name'] = df['game_name'].replace(name_corrections)
+            
+        # 🚨 NEW: GLOBAL TIMEZONE AND DATE FIX 🚨
+        # This protects the ENTIRE APP from bad dates and calculates the true local time immediately.
+        user_tz = st.session_state.get('timezone', 'UTC')
+        df['created_at'] = pd.to_datetime(df['created_at'], utc=True, errors='coerce').dt.tz_convert(user_tz).dt.tz_localize(None)
+        df = df.dropna(subset=['created_at']) # Destroys any corrupted data so it doesn't bleed into your PDF
             
         return df
     else:
@@ -163,7 +164,6 @@ def render_icon_grid(df_game, game_name):
         return
 
     df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
-    # UPDATED: "Par 21 WB" -> "Par 21wb"
     lower_is_better = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21wb", "6ft Game", "6-9-12", "2-7 Drill"]
 
     st.markdown("### 📜 Recent Sessions")
@@ -172,11 +172,11 @@ def render_icon_grid(df_game, game_name):
         with st.container(border=True):
             col1, col2, col3 = st.columns([2, 2, 1])
             
+            # Simplified date parsing since we clean it globally now
             try:
-                dt = datetime.datetime.fromisoformat(str(row['created_at']).replace('Z', '+00:00'))
-                date_str = dt.strftime("%b %d, %Y")
+                date_str = pd.to_datetime(row['created_at']).strftime("%b %d, %Y")
             except:
-                date_str = str(row['created_at'])[:10]
+                date_str = "Unknown Date"
                 
             score_val = row['score_primary']
             score_str = ""
@@ -187,25 +187,22 @@ def render_icon_grid(df_game, game_name):
                 prev_score = df_game.iloc[i+1]['score_primary']
                 diff = score_val - prev_score
                 
-                # UPDATED: "Max SS/BS" -> "BS/SS", "Par 21 WB" -> "Par 21wb"
                 if game_name != "BS/SS" and row.get('game_category') != "Practice Rounds":
                     if diff > 0:
-                        delta_str = f"📈 +{diff:.1f}" if game_name not in ["20 to 50", "Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📈 +{int(diff)}"
+                        delta_str = f"📈 +{diff:.1f}" if game_name not in ["20 to 50", "Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12"] else f"📈 +{int(diff)}"
                         delta_color = "#dc3545" if game_name in lower_is_better else "#28a745"
                     elif diff < 0:
-                        delta_str = f"📉 {diff:.1f}" if game_name not in ["20 to 50", "Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📉 {int(diff)}"
+                        delta_str = f"📉 {diff:.1f}" if game_name not in ["20 to 50", "Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12"] else f"📉 {int(diff)}"
                         delta_color = "#28a745" if game_name in lower_is_better else "#dc3545"
                     else:
                         delta_str = "➖ Even"
                         delta_color = "gray"
 
-            # UPDATED: "Max SS/BS" -> "BS/SS"
             if game_name == "BS/SS": 
                 score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
             elif game_name in ["20 to 50"]: 
                 score_str = f"{row['score_primary']:.0f}%" 
                 if delta_str and "Even" not in delta_str: delta_str += "%"
-            # UPDATED: "Par 21 WB" -> "Par 21wb"
             elif game_name in ["Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: 
                 score_str = f"{row['score_primary']:.0f}" 
             elif row.get('game_category') == "Practice Rounds":
@@ -237,110 +234,6 @@ def render_icon_grid(df_game, game_name):
                     if st.button("Yes", key=f"del_{row['id']}", type="primary", use_container_width=True):
                         supabase.table("practice_logs").delete().eq("id", row['id']).execute()
                         st.rerun()
-
-def render_on_course_performance(category):
-    st.write(f"*These statistics are automatically aggregated from your logged **Practice Rounds**.*")
-    
-    # Pull all practice rounds
-    pr_df = df_logs[df_logs['game_category'] == "Practice Rounds"]
-    
-    if pr_df.empty: 
-        st.info("No Practice Rounds logged yet. Head over to the Practice Rounds page to log your first round!")
-        if st.button("➡️ Go to Practice Rounds", key=f"go_pr_empty_{category}", type="primary"):
-            st.session_state.page = "Practice Rounds"
-            st.rerun()
-        return
-        
-    # Safely extract the raw data dicts
-    raw_list = [r for r in pr_df['raw_data'].tolist() if isinstance(r, dict)]
-    if not raw_list: return
-    
-    st.write("<br>", unsafe_allow_html=True)
-    
-    if category == "Driving":
-        fw = sum(r.get('driving', {}).get('fairways_hit', 0) for r in raw_list)
-        tee = sum(r.get('driving', {}).get('tee_shots', 0) for r in raw_list)
-        acc = (fw / tee * 100) if tee > 0 else 0
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Fairways Hit", fw)
-        c2.metric("Total Tee Shots", tee)
-        c3.metric("FW Accuracy", f"{acc:.0f}%")
-        
-    elif category == "Scoring Zone Long":
-        s = sum(r.get('scoring_zone', {}).get('szl_score', 0) for r in raw_list)
-        n = sum(r.get('scoring_zone', {}).get('szl_shots', 0) for r in raw_list)
-        avg = s/n if n > 0 else 0
-        c1, c2 = st.columns(2)
-        c1.metric("Total Score to Par (150-200)", f"{'+' if s>0 else ''}{s}")
-        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
-
-    elif category == "Scoring Zone Mid":
-        s = sum(r.get('scoring_zone', {}).get('szm_score', 0) for r in raw_list)
-        n = sum(r.get('scoring_zone', {}).get('szm_shots', 0) for r in raw_list)
-        avg = s/n if n > 0 else 0
-        c1, c2 = st.columns(2)
-        c1.metric("Total Score to Par (100-150)", f"{'+' if s>0 else ''}{s}")
-        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
-
-    elif category == "Scoring Zone Short":
-        s = sum(r.get('scoring_zone', {}).get('szs_score', 0) for r in raw_list)
-        n = sum(r.get('scoring_zone', {}).get('szs_shots', 0) for r in raw_list)
-        avg = s/n if n > 0 else 0
-        c1, c2 = st.columns(2)
-        c1.metric("Total Score to Par (50-100)", f"{'+' if s>0 else ''}{s}")
-        c2.metric("Avg Strokes vs Par", f"{'+' if avg>0 else ''}{avg:.2f}")
-
-    elif category == "Short Game":
-        tot = sum(r.get('short_game', {}).get('total_shots', 0) for r in raw_list)
-        ud = sum(r.get('short_game', {}).get('up_and_downs', 0) for r in raw_list)
-        in6 = sum(r.get('short_game', {}).get('inside_6ft', 0) for r in raw_list)
-        in3 = sum(r.get('short_game', {}).get('inside_3ft', 0) for r in raw_list)
-        
-        scr_pct = (ud / tot * 100) if tot > 0 else 0
-        in6_pct = (in6 / tot * 100) if tot > 0 else 0
-        in3_pct = (in3 / tot * 100) if tot > 0 else 0
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Scrambling (Up & Down)", f"{scr_pct:.0f}%")
-        c2.metric("Shots Inside 6ft", f"{in6_pct:.0f}%")
-        c3.metric("Shots Inside 3ft", f"{in3_pct:.0f}%")
-
-    elif category == "Putting":
-        normalized_putts_list = []
-        sgp = 0.0
-        lt = 0
-        ls = 0
-        
-        for r in raw_list:
-            putts = r.get('putting', {}).get('total_putts', 0)
-            if putts > 0:
-                # Check if it was a 9 or 18 hole round (default to 18 just in case)
-                holes = r.get('holes_played', 18) 
-                
-                # Normalize 9-hole rounds to 18-hole equivalents
-                if holes == 9:
-                    normalized_putts_list.append(putts * 2)
-                else:
-                    normalized_putts_list.append(putts)
-                
-                sgp += r.get('putting', {}).get('sg_putting', 0.0)
-                lt += r.get('putting', {}).get('lag_putts_total', 0)
-                ls += r.get('putting', {}).get('lag_putts_success', 0)
-                
-        rounds = len(normalized_putts_list)
-        avg_putts_18 = sum(normalized_putts_list) / rounds if rounds > 0 else 0
-        lag_pct = (ls / lt * 100) if lt > 0 else 0
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Avg SG Putting (per round)", f"{(sgp/rounds):+.2f}" if rounds > 0 else "0.00")
-        c2.metric("Avg Putts (per 18)", f"{avg_putts_18:.1f}")
-        c3.metric("Lag Putting Success", f"{lag_pct:.0f}%")
-        
-    st.divider()
-    if st.button("➕ Log More On-Course Data", key=f"nav_to_pr_{category}", type="primary"):
-        st.session_state.page = "Practice Rounds"
-        st.session_state.mode_pr = "entry"
-        st.rerun()
 
 # ==========================================
 # 5. ROUTING: LOGIN GATE
@@ -414,12 +307,9 @@ else:
         st.title("📊 Weekly Dashboard")
         st.write("Track your practice completion and download your weekly reports.")
         
-        # --- CREATIVE WORKAROUND: DYNAMIC TIME ENGINE ---
-        # We ignore Supabase's saved 'week_number' entirely to avoid timezone bugs.
-        # We force Pandas to calculate the True Week directly from the calendar date on the fly.
-        df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce', utc=True)
-        df_logs['True_Week'] = df_logs['created_at'].dt.isocalendar().week.fillna(current_week).astype(int)
-        df_logs['True_Year'] = df_logs['created_at'].dt.isocalendar().year.fillna(current_year).astype(int)
+        # Much safer week calculation now that dates are perfectly clean
+        df_logs['True_Week'] = df_logs['created_at'].dt.isocalendar().week.astype(int)
+        df_logs['True_Year'] = df_logs['created_at'].dt.isocalendar().year.astype(int)
         
         logged_weeks = sorted(df_logs['True_Week'].unique().tolist(), reverse=True)
         if current_week not in logged_weeks:
@@ -951,8 +841,8 @@ else:
         if 'mode_10shot' not in st.session_state: st.session_state.mode_10shot = "grid"
         if 'mode_ssbs' not in st.session_state: st.session_state.mode_ssbs = "grid"
 
-        # FIX: Bug-free radio menu with On-Course Stats at the end
-        drill_opts = ["10 Shot", "Max SS/BS", "On-Course Stats"]
+        # UPDATED: "Max SS/BS" to "BS/SS"
+        drill_opts = ["10 Shot", "BS/SS", "On-Course Stats"]
         if st.session_state.get('driving_radio') not in drill_opts: st.session_state.driving_radio = "10 Shot"
         
         selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.driving_radio), horizontal=True, label_visibility="collapsed")
@@ -1017,7 +907,8 @@ else:
                     st.session_state.mode_10shot = "grid"
                     st.rerun()
 
-        elif selected_game == "Max SS/BS":
+        # UPDATED: "Max SS/BS" to "BS/SS" here as well
+        elif selected_game == "BS/SS":
             st.subheader("Speed Limits (SS/BS)")
             st.write("*Your Max Swing Speed and Ball Speed (in mph) with your Driver today. **On-course measurements are highly preferred**, but range measurements can be used if needed.*")
             
@@ -1325,13 +1216,15 @@ else:
         if 'mode_sg_2050' not in st.session_state: st.session_state.mode_sg_2050 = "grid"
         if 'mode_sg_6ft' not in st.session_state: st.session_state.mode_sg_6ft = "grid"
 
-        drill_opts = ["Par 21 WB", "20 to 50", "6ft Game", "On-Course Stats"]
-        if st.session_state.get('sg_radio') not in drill_opts: st.session_state.sg_radio = "Par 21 WB"
+        # UPDATED: "Par 21 WB" to "Par 21wb"
+        drill_opts = ["Par 21wb", "20 to 50", "6ft Game", "On-Course Stats"]
+        if st.session_state.get('sg_radio') not in drill_opts: st.session_state.sg_radio = "Par 21wb"
         
         selected_game = st.radio("Select Drill:", drill_opts, index=drill_opts.index(st.session_state.sg_radio), horizontal=True, label_visibility="collapsed")
         st.session_state.sg_radio = selected_game
         
-        if selected_game == "Par 21 WB":
+        # UPDATED: "Par 21 WB" to "Par 21wb"
+        if selected_game == "Par 21wb":
             st.write("*A 9 hole short game course, with 3 easy, 3 medium, and 3 hard shots all from green-side up to 50 yards.*")
             st.caption("**Rules:** Drop 2 balls per hole. Play the worst ball amongst the 2 and hole out. Par is 2 per hole. Tour average is 21. If too advanced, use 1 ball.")
             
