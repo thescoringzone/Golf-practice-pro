@@ -583,34 +583,70 @@ else:
                     
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
 
-        # --- NEW: CALCULATE ON-COURSE STATS FOR THE PDF ---
+        # --- NEW: CALCULATE AND ORGANIZE ON-COURSE STATS FOR THE PDF ---
         pr_cw = df_cw[df_cw['game_category'] == "Practice Rounds"]
         raw_list_cw = [r for r in pr_cw['raw_data'].tolist() if isinstance(r, dict)]
+        num_rounds = len(raw_list_cw)
         
-        if len(raw_list_cw) > 0:
+        if num_rounds > 0:
+            avg_to_par = pr_cw['score_primary'].mean()
             fw_h = sum(r.get("driving", {}).get("fairways_hit", 0) for r in raw_list_cw)
             tee_s = sum(r.get("driving", {}).get("tee_shots", 0) for r in raw_list_cw)
-            scr_ud = sum(r.get("short_game", {}).get("up_and_downs", 0) for r in raw_list_cw)
-            scr_tot = sum(r.get("short_game", {}).get("total_shots", 0) for r in raw_list_cw)
+            fw_pct = (fw_h / tee_s * 100) if tee_s > 0 else 0
+            
+            szl_s = sum(r.get("scoring_zone", {}).get("szl_score", 0) for r in raw_list_cw)
+            szl_n = sum(r.get("scoring_zone", {}).get("szl_shots", 0) for r in raw_list_cw)
+            szm_s = sum(r.get("scoring_zone", {}).get("szm_score", 0) for r in raw_list_cw)
+            szm_n = sum(r.get("scoring_zone", {}).get("szm_shots", 0) for r in raw_list_cw)
+            szs_s = sum(r.get("scoring_zone", {}).get("szs_score", 0) for r in raw_list_cw)
+            szs_n = sum(r.get("scoring_zone", {}).get("szs_shots", 0) for r in raw_list_cw)
+            
+            sg_tot = sum(r.get("short_game", {}).get("total_shots", 0) for r in raw_list_cw)
+            sg_ud = sum(r.get("short_game", {}).get("up_and_downs", 0) for r in raw_list_cw)
+            sg_6 = sum(r.get("short_game", {}).get("inside_6ft", 0) for r in raw_list_cw)
+            sg_3 = sum(r.get("short_game", {}).get("inside_3ft", 0) for r in raw_list_cw)
+            ud_pct = (sg_ud / sg_tot * 100) if sg_tot > 0 else 0
+            in6_pct = (sg_6 / sg_tot * 100) if sg_tot > 0 else 0
+            in3_pct = (sg_3 / sg_tot * 100) if sg_tot > 0 else 0
             
             tot_putts_18 = 0
+            sg_p = 0.0
+            lag_t = 0
+            lag_s = 0
             for r in raw_list_cw:
                 p = r.get("putting", {}).get("total_putts", 0)
-                # Normalize putts to 18 holes if they only played 9
                 tot_putts_18 += (p * 2) if r.get("holes_played", 18) == 9 else p
+                sg_p += r.get("putting", {}).get("sg_putting", 0.0)
+                lag_t += r.get("putting", {}).get("lag_putts_total", 0)
+                lag_s += r.get("putting", {}).get("lag_putts_success", 0)
                 
-            fw_pct = (fw_h / tee_s * 100) if tee_s > 0 else 0
-            scr_pct = (scr_ud / scr_tot * 100) if scr_tot > 0 else 0
-            avg_p = tot_putts_18 / len(raw_list_cw)
-            avg_gross = sum(r.get("gross_score", 0) for r in raw_list_cw) / len(raw_list_cw)
-            
-            pr_stats_str = (
-                f"Rounds Logged: {len(raw_list_cw)}   |   Avg Gross Score: {avg_gross:.1f}\n"
-                f"FW Accuracy: {fw_pct:.0f}%   |   Scrambling: {scr_pct:.0f}%\n"
-                f"Avg Putts (per 18): {avg_p:.1f}"
-            )
+            putts_18 = tot_putts_18 / num_rounds
+            sg_putt_avg = sg_p / num_rounds
+            lag_pct = (lag_s / lag_t * 100) if lag_t > 0 else 0
+
+            # Formatting helper for the absolute scoring zone stats (e.g., "-4(5)")
+            def fmt_sz(score, shots):
+                if shots == 0: return "-"
+                sign = "+" if score > 0 else ""
+                return f"{sign}{score} ({shots})"
+
+            # Build the clean dictionary of exact stats you asked for
+            pr_stats_dict = {
+                "to_par": f"{'+' if avg_to_par > 0 else ''}{avg_to_par:.1f}" if avg_to_par != 0 else "E",
+                "fw_pct": f"{fw_pct:.0f}%",
+                "putts_18": f"{putts_18:.1f}",
+                "szl": fmt_sz(szl_s, szl_n),
+                "ud_pct": f"{ud_pct:.0f}%",
+                "sg_putt": f"{'+' if sg_putt_avg > 0 else ''}{sg_putt_avg:.2f}",
+                "szm": fmt_sz(szm_s, szm_n),
+                "in6_pct": f"{in6_pct:.0f}%",
+                "lag_pct": f"{lag_pct:.0f}%",
+                "szs": fmt_sz(szs_s, szs_n),
+                "in3_pct": f"{in3_pct:.0f}%",
+                "rounds": str(num_rounds)
+            }
         else:
-            pr_stats_str = "No on-course practice logged this week."
+            pr_stats_dict = None
 
         # --- GENERATE THE PDF ---
         def generate_pdf_report(df, week, year, username, l_text, s_text, pr_stats):
@@ -636,7 +672,6 @@ else:
             headers = ["Drill", "Avg", "Best", "% Change"]
             current_category = ""
             
-            # 1. DRAW LEFT SIDE (COMBINE TABLE)
             for _, row in df.iterrows():
                 pdf.set_x(10)
                 if row["Category"] != current_category:
@@ -673,15 +708,15 @@ else:
 
             table_end_y = pdf.get_y() 
 
-            # 2. DRAW RIGHT SIDE (THE 3 BOXES)
             right_x = 165
             box_width = 120
             
             total_available_height = table_end_y - start_y
-            # Divide available height evenly for 3 boxes, with a minimum height to prevent squishing
-            box_height = max(18, (total_available_height - 24) / 3) 
+            box_height = max(21, (total_available_height - 24) / 3) 
             
-            # --- BOX 1: ON-COURSE STATS ---
+            # ============================================
+            # NEW PDF BOX 1: ON-COURSE STATS (MINI-GRID)
+            # ============================================
             pdf.set_xy(right_x, start_y)
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(41, 55, 70)
@@ -690,15 +725,51 @@ else:
             box1_y = pdf.get_y()
             pdf.rect(right_x, box1_y, box_width, box_height)
             
-            original_l_margin = pdf.l_margin
-            pdf.set_left_margin(right_x + 2)
-            pdf.set_xy(right_x + 2, box1_y + 2)
-            pdf.set_font("Helvetica", "", 8.5)
-            pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(box_width - 4, 5, pr_stats)
+            if pr_stats:
+                # Helper function to perfectly align label and value
+                def draw_stat(x, y, label, val):
+                    pdf.set_xy(x, y)
+                    pdf.set_font("Helvetica", "", 7.5)
+                    pdf.set_text_color(100, 100, 100) # Subtle grey label
+                    pdf.cell(19, 4, label)
+                    pdf.set_xy(x + 19, y)
+                    pdf.set_font("Helvetica", "B", 7.5)
+                    pdf.set_text_color(0, 0, 0) # Bold black value
+                    pdf.cell(18, 4, val)
+
+                # Set up the 3 columns and 4 rows coordinates
+                x1, x2, x3 = right_x + 2, right_x + 42, right_x + 82
+                y1, y2, y3, y4 = box1_y + 1.5, box1_y + 6, box1_y + 10.5, box1_y + 15
+                
+                # Draw Row 1
+                draw_stat(x1, y1, "To Par:", pr_stats["to_par"])
+                draw_stat(x2, y1, "FW Hit:", pr_stats["fw_pct"])
+                draw_stat(x3, y1, "Putts/18:", pr_stats["putts_18"])
+                # Draw Row 2
+                draw_stat(x1, y2, "150-200y:", pr_stats["szl"])
+                draw_stat(x2, y2, "Scrambling:", pr_stats["ud_pct"])
+                draw_stat(x3, y2, "SG Putt:", pr_stats["sg_putt"])
+                # Draw Row 3
+                draw_stat(x1, y3, "100-150y:", pr_stats["szm"])
+                draw_stat(x2, y3, "Inside 6ft:", pr_stats["in6_pct"])
+                draw_stat(x3, y3, "Lag Putt:", pr_stats["lag_pct"])
+                # Draw Row 4
+                draw_stat(x1, y4, "50-100y:", pr_stats["szs"])
+                draw_stat(x2, y4, "Inside 3ft:", pr_stats["in3_pct"])
+                draw_stat(x3, y4, "Rounds:", pr_stats["rounds"])
+            else:
+                original_l_margin = pdf.l_margin
+                pdf.set_left_margin(right_x + 2)
+                pdf.set_xy(right_x + 2, box1_y + 2)
+                pdf.set_font("Helvetica", "I", 8.5)
+                pdf.set_text_color(150, 150, 150)
+                pdf.multi_cell(box_width - 4, 5, "No on-course practice logged this week.")
+                pdf.set_left_margin(original_l_margin) 
             
-            # --- BOX 2: LEARNINGS ---
-            pdf.set_left_margin(original_l_margin) 
+            # ============================================
+            # BOX 2: LEARNINGS
+            # ============================================
+            original_l_margin = pdf.l_margin
             box2_start_y = box1_y + box_height + 4 
             
             pdf.set_xy(right_x, box2_start_y)
@@ -715,7 +786,9 @@ else:
             pdf.set_text_color(0, 0, 0)
             pdf.multi_cell(box_width - 4, 4.5, str(l_text).strip() if l_text else "")
             
-            # --- BOX 3: SUCCESSES ---
+            # ============================================
+            # BOX 3: SUCCESSES
+            # ============================================
             pdf.set_left_margin(original_l_margin) 
             box3_start_y = box2_y + box_height + 4 
             
@@ -746,8 +819,7 @@ else:
                 with open(tmp.name, "rb") as f:
                     return f.read()
 
-        # Update the generator call to pass the new pr_stats_str variable
-        pdf_bytes = generate_pdf_report(df_report, selected_week, current_year, st.session_state.current_user, learnings_input, successes_input, pr_stats_str)
+        pdf_bytes = generate_pdf_report(df_report, selected_week, current_year, st.session_state.current_user, learnings_input, successes_input, pr_stats_dict)
         
         st.download_button(
             label=f"📄 Download Week {selected_week} Landscape Report",
