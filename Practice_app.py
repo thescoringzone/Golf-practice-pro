@@ -109,7 +109,7 @@ if 'driving_radio' not in st.session_state: st.session_state.driving_radio = "10
 if 'szl_radio' not in st.session_state: st.session_state.szl_radio = "Situational Practice 150-200"
 if 'szm_radio' not in st.session_state: st.session_state.szm_radio = "Situational Practice 100-150"
 if 'szs_radio' not in st.session_state: st.session_state.szs_radio = "Situational Practice 50-100"
-if 'sg_radio' not in st.session_state: st.session_state.sg_radio = "Par 21 WB"
+if 'sg_radio' not in st.session_state: st.session_state.sg_radio = "Par 21wb"
 if 'putt_radio' not in st.session_state: st.session_state.putt_radio = "Pace"
 if 'pr_game_select' not in st.session_state: st.session_state.pr_game_select = "Straight up"
 
