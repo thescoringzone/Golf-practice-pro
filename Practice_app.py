@@ -1531,19 +1531,8 @@ else:
             
             # --- DATA PREP ---
             df_cat = df_logs[df_logs['game_category'] == selected_cat].copy()
-            # 1. Get the current user's dynamic timezone (defaults to UTC just in case)
-            # Note: Ensure 'timezone' matches the exact name you used in your login page session state!
-            user_tz = st.session_state.get('timezone', 'UTC')
-
-            # 2. Parse as UTC, 3. Convert to User's Timezone, 4. Strip the timezone tag for Streamlit
-            df_cat['created_at'] = (
-            pd.to_datetime(df_cat['created_at'], utc=True, errors='coerce')
-            .dt.tz_convert(user_tz)
-            .dt.tz_localize(None)
-            )
-
-            # Clean up: Drop any rows that had garbage data instead of real dates
-            df_cat = df_cat.dropna(subset=['created_at'])
+            
+            # (Notice how clean this is now! The timezone code is gone because df_cat is already perfect)
             
             if timeline == "Weekly Averages":
                 df_cat['Period_Sort'] = df_cat['created_at'].dt.to_period('W').dt.start_time
@@ -1559,9 +1548,11 @@ else:
                 df_cat['Period_Sort'] = df_cat['created_at'].dt.to_period('Y').dt.start_time
                 df_cat['Group'] = df_cat['created_at'].dt.strftime('%Y')
                 
-            lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-8 Drill", "Straight up", "5m game", "10m game"]
+            # UPDATED: "Par 21 WB" to "Par 21wb" and "2-8 Drill" to "2-7 Drill"
+            lower_is_better_games = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21wb", "6ft Game", "6-9-12", "2-7 Drill", "Straight up", "5m game", "10m game"]
 
             st.divider()
+            
 
             # ==========================================
             # 1. MACRO VIEW: OVERALL CATEGORY MOMENTUM
