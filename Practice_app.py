@@ -163,7 +163,8 @@ def render_icon_grid(df_game, game_name):
         return
 
     df_game = df_game.sort_values('created_at', ascending=False).reset_index(drop=True)
-    lower_is_better = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21 WB", "6ft Game", "6-9-12", "2-7 Drill"]
+    # UPDATED: "Par 21 WB" -> "Par 21wb"
+    lower_is_better = ["Situational Practice 150-200", "Situational Practice 100-150", "Situational Practice 50-100", "TM 50-100", "Par 21wb", "6ft Game", "6-9-12", "2-7 Drill"]
 
     st.markdown("### 📜 Recent Sessions")
     
@@ -186,23 +187,26 @@ def render_icon_grid(df_game, game_name):
                 prev_score = df_game.iloc[i+1]['score_primary']
                 diff = score_val - prev_score
                 
-                if game_name != "Max SS/BS" and row.get('game_category') != "Practice Rounds":
+                # UPDATED: "Max SS/BS" -> "BS/SS", "Par 21 WB" -> "Par 21wb"
+                if game_name != "BS/SS" and row.get('game_category') != "Practice Rounds":
                     if diff > 0:
-                        delta_str = f"📈 +{diff:.1f}" if game_name not in ["20 to 50", "Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📈 +{int(diff)}"
+                        delta_str = f"📈 +{diff:.1f}" if game_name not in ["20 to 50", "Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📈 +{int(diff)}"
                         delta_color = "#dc3545" if game_name in lower_is_better else "#28a745"
                     elif diff < 0:
-                        delta_str = f"📉 {diff:.1f}" if game_name not in ["20 to 50", "Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📉 {int(diff)}"
+                        delta_str = f"📉 {diff:.1f}" if game_name not in ["20 to 50", "Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-8 Drill", "6-9-12"] else f"📉 {int(diff)}"
                         delta_color = "#28a745" if game_name in lower_is_better else "#dc3545"
                     else:
                         delta_str = "➖ Even"
                         delta_color = "gray"
 
-            if game_name == "Max SS/BS": 
+            # UPDATED: "Max SS/BS" -> "BS/SS"
+            if game_name == "BS/SS": 
                 score_str = f"{row['score_primary']:.0f} / {row['score_secondary']:.0f}"
             elif game_name in ["20 to 50"]: 
                 score_str = f"{row['score_primary']:.0f}%" 
                 if delta_str and "Even" not in delta_str: delta_str += "%"
-            elif game_name in ["Par 21 WB", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: 
+            # UPDATED: "Par 21 WB" -> "Par 21wb"
+            elif game_name in ["Par 21wb", "6ft Game", "TM 50-100", "Pace", "2-7 Drill", "6-9-12", "Green Reading"]: 
                 score_str = f"{row['score_primary']:.0f}" 
             elif row.get('game_category') == "Practice Rounds":
                 raw = row.get('raw_data', {})
