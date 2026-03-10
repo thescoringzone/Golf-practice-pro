@@ -583,7 +583,37 @@ else:
                     
         df_report = pd.DataFrame(report_data, columns=["Category", "Drill", "Weekly Avg", "Weekly Best", "% Change"])
 
-        def generate_pdf_report(df, week, year, username, l_text, s_text):
+        # --- NEW: CALCULATE ON-COURSE STATS FOR THE PDF ---
+        pr_cw = df_cw[df_cw['game_category'] == "Practice Rounds"]
+        raw_list_cw = [r for r in pr_cw['raw_data'].tolist() if isinstance(r, dict)]
+        
+        if len(raw_list_cw) > 0:
+            fw_h = sum(r.get("driving", {}).get("fairways_hit", 0) for r in raw_list_cw)
+            tee_s = sum(r.get("driving", {}).get("tee_shots", 0) for r in raw_list_cw)
+            scr_ud = sum(r.get("short_game", {}).get("up_and_downs", 0) for r in raw_list_cw)
+            scr_tot = sum(r.get("short_game", {}).get("total_shots", 0) for r in raw_list_cw)
+            
+            tot_putts_18 = 0
+            for r in raw_list_cw:
+                p = r.get("putting", {}).get("total_putts", 0)
+                # Normalize putts to 18 holes if they only played 9
+                tot_putts_18 += (p * 2) if r.get("holes_played", 18) == 9 else p
+                
+            fw_pct = (fw_h / tee_s * 100) if tee_s > 0 else 0
+            scr_pct = (scr_ud / scr_tot * 100) if scr_tot > 0 else 0
+            avg_p = tot_putts_18 / len(raw_list_cw)
+            avg_gross = sum(r.get("gross_score", 0) for r in raw_list_cw) / len(raw_list_cw)
+            
+            pr_stats_str = (
+                f"Rounds Logged: {len(raw_list_cw)}   |   Avg Gross Score: {avg_gross:.1f}\n"
+                f"FW Accuracy: {fw_pct:.0f}%   |   Scrambling: {scr_pct:.0f}%\n"
+                f"Avg Putts (per 18): {avg_p:.1f}"
+            )
+        else:
+            pr_stats_str = "No on-course practice logged this week."
+
+        # --- GENERATE THE PDF ---
+        def generate_pdf_report(df, week, year, username, l_text, s_text, pr_stats):
             class PDF(FPDF):
                 def header(self):
                     self.set_y(8) 
@@ -606,6 +636,7 @@ else:
             headers = ["Drill", "Avg", "Best", "% Change"]
             current_category = ""
             
+            # 1. DRAW LEFT SIDE (COMBINE TABLE)
             for _, row in df.iterrows():
                 pdf.set_x(10)
                 if row["Category"] != current_category:
@@ -642,16 +673,19 @@ else:
 
             table_end_y = pdf.get_y() 
 
+            # 2. DRAW RIGHT SIDE (THE 3 BOXES)
             right_x = 165
             box_width = 120
             
             total_available_height = table_end_y - start_y
-            box_height = max(20, (total_available_height - 18) / 2) 
+            # Divide available height evenly for 3 boxes, with a minimum height to prevent squishing
+            box_height = max(18, (total_available_height - 24) / 3) 
             
+            # --- BOX 1: ON-COURSE STATS ---
             pdf.set_xy(right_x, start_y)
-            pdf.set_font("Helvetica", "B", 11)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(41, 55, 70)
-            pdf.cell(box_width, 7, "Learnings of the week", ln=1)
+            pdf.cell(box_width, 6, "On-Course Weekly Averages", ln=1)
             
             box1_y = pdf.get_y()
             pdf.rect(right_x, box1_y, box_width, box_height)
@@ -659,29 +693,49 @@ else:
             original_l_margin = pdf.l_margin
             pdf.set_left_margin(right_x + 2)
             pdf.set_xy(right_x + 2, box1_y + 2)
-            pdf.set_font("Helvetica", "", 9)
+            pdf.set_font("Helvetica", "", 8.5)
             pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(box_width - 4, 4.5, str(l_text).strip() if l_text else "")
+            pdf.multi_cell(box_width - 4, 5, pr_stats)
             
+            # --- BOX 2: LEARNINGS ---
             pdf.set_left_margin(original_l_margin) 
-            success_start_y = box1_y + box_height + 4 
+            box2_start_y = box1_y + box_height + 4 
             
-            pdf.set_xy(right_x, success_start_y)
-            pdf.set_font("Helvetica", "B", 11)
+            pdf.set_xy(right_x, box2_start_y)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(41, 55, 70)
-            pdf.cell(box_width, 7, "Successes of the week", ln=1)
+            pdf.cell(box_width, 6, "Learnings of the week", ln=1)
             
             box2_y = pdf.get_y()
             pdf.rect(right_x, box2_y, box_width, box_height)
             
             pdf.set_left_margin(right_x + 2)
             pdf.set_xy(right_x + 2, box2_y + 2)
-            pdf.set_font("Helvetica", "", 9)
+            pdf.set_font("Helvetica", "", 8.5)
+            pdf.set_text_color(0, 0, 0)
+            pdf.multi_cell(box_width - 4, 4.5, str(l_text).strip() if l_text else "")
+            
+            # --- BOX 3: SUCCESSES ---
+            pdf.set_left_margin(original_l_margin) 
+            box3_start_y = box2_y + box_height + 4 
+            
+            pdf.set_xy(right_x, box3_start_y)
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(41, 55, 70)
+            pdf.cell(box_width, 6, "Successes of the week", ln=1)
+            
+            box3_y = pdf.get_y()
+            pdf.rect(right_x, box3_y, box_width, box_height)
+            
+            pdf.set_left_margin(right_x + 2)
+            pdf.set_xy(right_x + 2, box3_y + 2)
+            pdf.set_font("Helvetica", "", 8.5)
             pdf.set_text_color(0, 0, 0)
             pdf.multi_cell(box_width - 4, 4.5, str(s_text).strip() if s_text else "")
             
             pdf.set_left_margin(original_l_margin) 
 
+            # Footer
             pdf.set_y(195)
             pdf.set_font("Helvetica", "I", 8)
             pdf.set_text_color(150, 150, 150)
@@ -692,7 +746,9 @@ else:
                 with open(tmp.name, "rb") as f:
                     return f.read()
 
-        pdf_bytes = generate_pdf_report(df_report, selected_week, current_year, st.session_state.current_user, learnings_input, successes_input)
+        # Update the generator call to pass the new pr_stats_str variable
+        pdf_bytes = generate_pdf_report(df_report, selected_week, current_year, st.session_state.current_user, learnings_input, successes_input, pr_stats_str)
+        
         st.download_button(
             label=f"📄 Download Week {selected_week} Landscape Report",
             data=pdf_bytes,
