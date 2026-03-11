@@ -449,21 +449,19 @@ else:
         st.write("*Practice smarter. Track your combines, review your progress, and download your Caddie Report.*")
         st.write("<br>", unsafe_allow_html=True)
         
-        # (Your dynamic time engine code starts right here...)
-        # Safely convert to datetime, handling empty data gracefully
-      if 'created_at' in df_logs.columns:
-    df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce')
+       # Safely convert the column to datetime
+        if 'created_at' in df_logs.columns:
+            df_logs['created_at'] = pd.to_datetime(df_logs['created_at'], errors='coerce')
 
-# Check if there is actually data before doing datetime math
-if not df_logs.empty:
-    df_logs['True_Week'] = df_logs['created_at'].dt.isocalendar().week.astype(int)
-    # Move the year calculation HERE, where we actually have data
-    df_logs['True_Year'] = df_logs['created_at'].dt.isocalendar().year.astype(int) 
-else:
-    # If the user is new, create empty columns so the charts don't break
-    df_logs['True_Week'] = pd.Series(dtype=int)
-    # Just make an empty column for the year down here!
-    df_logs['True_Year'] = pd.Series(dtype=int)
+# Check if the dataframe actually has data
+        if not df_logs.empty:
+    # Calculate week and year if data exists
+            df_logs['True_Week'] = df_logs['created_at'].dt.isocalendar().week.astype(int)
+            df_logs['True_Year'] = df_logs['created_at'].dt.isocalendar().year.astype(int)
+        else:
+    # Create empty columns for new users so the app doesn't crash
+            df_logs['True_Week'] = pd.Series(dtype=int)
+            df_logs['True_Year'] = pd.Series(dtype=int)
         
         logged_weeks = sorted(df_logs['True_Week'].unique().tolist(), reverse=True)
         if current_week not in logged_weeks:
